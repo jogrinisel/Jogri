@@ -197,7 +197,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 
 /* ── LEADERBOARD PANEL ── */
 #lb-panel {
-  position: absolute; inset: 0; z-index: 25;
+  position: fixed; inset: 0; z-index: 25;
   background: var(--bg); display: none; flex-direction: column;
   pointer-events: all;
 }
@@ -258,7 +258,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 
 /* ── PLAYER DETAIL PANEL ── */
 #player-detail-panel {
-  position: absolute; inset: 0; z-index: 26;
+  position: fixed; inset: 0; z-index: 26;
   background: var(--bg); display: none; flex-direction: column;
   pointer-events: all;
 }
@@ -405,30 +405,30 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     </div>
     <div class="cur-badge new" id="cur-badge">Neu ✓</div>
   </div>
+</div>
 
-  <!-- Leaderboard overlay -->
-  <div id="lb-panel">
-    <div class="lb-header">
-      <div class="lb-title">Rangliste</div>
-      <button class="lb-close" onclick="toggleLeaderboard()">✕</button>
-    </div>
-    <div class="lb-tabs">
-      <button class="lb-tab active" id="lb-tab-best" onclick="switchLbTab('best')">Beste Resultate</button>
-      <button class="lb-tab" id="lb-tab-live" onclick="switchLbTab('live')">Gerade unterwegs</button>
-    </div>
-    <div class="lb-list" id="lb-list"><div class="lb-empty">Lade Rangliste…</div></div>
+<!-- Leaderboard overlay (global, independent of active screen) -->
+<div id="lb-panel">
+  <div class="lb-header">
+    <div class="lb-title">Rangliste</div>
+    <button class="lb-close" onclick="toggleLeaderboard()">✕</button>
   </div>
+  <div class="lb-tabs">
+    <button class="lb-tab active" id="lb-tab-best" onclick="switchLbTab('best')">Beste Resultate</button>
+    <button class="lb-tab" id="lb-tab-live" onclick="switchLbTab('live')">Gerade unterwegs</button>
+  </div>
+  <div class="lb-list" id="lb-list"><div class="lb-empty">Lade Rangliste…</div></div>
+</div>
 
-  <!-- Player detail overlay (progress map popup) -->
-  <div id="player-detail-panel">
-    <div class="lb-header">
-      <div class="lb-title" id="pd-title">Spieler</div>
-      <button class="lb-close" onclick="closePlayerDetail()">✕</button>
-    </div>
-    <div id="pd-map"></div>
-    <div id="pd-footer">
-      <div class="pd-stat"><div class="pd-num" id="pd-count">0</div><div class="pd-lbl">/ 334 Gemeinden</div></div>
-    </div>
+<!-- Player detail overlay (global, independent of active screen) -->
+<div id="player-detail-panel">
+  <div class="lb-header">
+    <div class="lb-title" id="pd-title">Spieler</div>
+    <button class="lb-close" onclick="closePlayerDetail()">✕</button>
+  </div>
+  <div id="pd-map"></div>
+  <div id="pd-footer">
+    <div class="pd-stat"><div class="pd-num" id="pd-count">0</div><div class="pd-lbl">/ 334 Gemeinden</div></div>
   </div>
 </div>
 
