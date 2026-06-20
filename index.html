@@ -110,8 +110,8 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 /* HUD */
 #hud {
   position: absolute; top: 0; left: 0; right: 0; z-index: 20;
-  padding: 14px 16px 10px;
-  background: linear-gradient(to bottom, rgba(14,26,20,.97) 60%, transparent);
+  padding: 14px 16px 16px;
+  background: linear-gradient(to bottom, rgba(14,26,20,.97) 80%, rgba(14,26,20,0));
   pointer-events: none;
 }
 .hud-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -309,6 +309,8 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   font-size: 11px; cursor: pointer; white-space: nowrap;
 }
 .admin-delete-btn:hover { background: #e0182d; color: #fff; }
+.admin-reset-btn { border-color: var(--gold); color: var(--gold); }
+.admin-reset-btn:hover { background: var(--gold); color: var(--bg); }
 
 /* ── SETUP WARNING ── */
 #setup-warning {
@@ -366,9 +368,9 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <label>PIN (4 Ziffern)</label>
     <input type="tel" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
   </div>
-  <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt. Bekannter Name → PIN zum Fortsetzen eingeben.</div>
+  <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
   <button class="btn-primary" id="start-btn" onclick="startChallenge()">Challenge starten →</button>
-  <button class="home-leaderboard-btn" onclick="showLeaderboard()">Live-Rangliste anzeigen</button>
+  <button class="home-leaderboard-btn" onclick="showLeaderboardFromHome()">Live-Rangliste anzeigen</button>
 </div>
 
 <!-- MAP -->
@@ -438,7 +440,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <div class="end-lbl">Gemeinden gesammelt</div>
   <div class="end-sub" id="end-sub">Dein Resultat wurde gespeichert.</div>
   <button class="btn-primary" onclick="goHome()" style="max-width:280px;margin-top:8px">Nochmals versuchen</button>
-  <button class="btn-primary" onclick="showLeaderboard()" style="max-width:280px;background:var(--surface);color:var(--white);border:1px solid var(--border)">Rangliste anzeigen</button>
+  <button class="btn-primary" onclick="showLeaderboardFromEnd()" style="max-width:280px;background:var(--surface);color:var(--white);border:1px solid var(--border)">Rangliste anzeigen</button>
 </div>
 
 <!-- ADMIN -->
@@ -578,7 +580,7 @@ async function hashPin(name, pin) {
 
 function setPinHint(msg, isError) {
   const el = document.getElementById("pin-hint");
-  el.textContent = msg;
+  el.innerHTML = msg;
   el.className = "pin-hint" + (isError ? " error" : "");
 }
 
@@ -1101,11 +1103,32 @@ function toggleLeaderboard() {
   lbOpen = !lbOpen;
   document.getElementById("lb-panel").className = lbOpen ? "open" : "";
   if (lbOpen) loadLeaderboard();
+  if (!lbOpen && lbReturnScreen) {
+    showScreen(lbReturnScreen);
+    lbReturnScreen = null;
+  }
 }
 
+let lbReturnScreen = null;
+
 function showLeaderboard() {
+  // Called when an active player opens the leaderboard from the map screen
   showScreen("map");
   initMap();
+  lbOpen = false;
+  toggleLeaderboard();
+}
+
+function showLeaderboardFromHome() {
+  // Called from the login screen — closing the leaderboard must return to home, not the map
+  lbReturnScreen = "home";
+  lbOpen = false;
+  toggleLeaderboard();
+}
+
+function showLeaderboardFromEnd() {
+  // Called from the end screen — closing the leaderboard must return to end, not the map
+  lbReturnScreen = "end";
   lbOpen = false;
   toggleLeaderboard();
 }
@@ -1224,6 +1247,7 @@ async function loadAdminList() {
           <div class="admin-pname">${esc(s.player_name)}</div>
           <div class="admin-detail">${s.count} Gem. · ${status}</div>
         </div>
+        <button class="admin-delete-btn admin-reset-btn" onclick="adminResetPin('${esc(s.player_name)}')">PIN zurücksetzen</button>
         <button class="admin-delete-btn" onclick="adminDeleteSession('${s.id}', '${esc(s.player_name)}')">Session löschen</button>
         <button class="admin-delete-btn" onclick="adminDeletePlayer('${esc(s.player_name)}')">Account löschen</button>
       </div>`;
@@ -1231,6 +1255,26 @@ async function loadAdminList() {
   } catch(e) {
     console.error("loadAdminList:", e);
     el.innerHTML = "<div class='lb-empty'>Fehler beim Laden</div>";
+  }
+}
+
+async function adminResetPin(name) {
+  const newPin = prompt(`Neuen 4-stelligen PIN für "${name}" festlegen:`);
+  if (newPin === null) return; // cancelled
+  if (!/^\d{4}$/.test(newPin)) {
+    alert("Bitte genau 4 Ziffern eingeben.");
+    return;
+  }
+  try {
+    const newHash = await hashPin(name, newPin);
+    const { error } = await db.from("players")
+      .update({ pin_hash: newHash })
+      .eq("player_name", name);
+    if (error) throw error;
+    alert(`Neuer PIN für "${name}": ${newPin}\nBitte direkt weitergeben.`);
+  } catch(e) {
+    console.error("adminResetPin:", e);
+    alert("PIN zurücksetzen fehlgeschlagen.");
   }
 }
 
@@ -1293,7 +1337,7 @@ function logoutToLogin() {
   document.getElementById("firstname-input").value = "";
   document.getElementById("lastname-input").value = "";
   document.getElementById("pin-input").value = "";
-  setPinHint("Neuer Name → PIN wird neu festgelegt. Bekannter Name → PIN zum Fortsetzen eingeben.", false);
+  setPinHint("Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.", false);
   showScreen("home");
   loadHomeStat();
 }
@@ -1306,7 +1350,7 @@ function goHome() {
   document.getElementById("firstname-input").value = "";
   document.getElementById("lastname-input").value = "";
   document.getElementById("pin-input").value = "";
-  setPinHint("Neuer Name → PIN wird neu festgelegt. Bekannter Name → PIN zum Fortsetzen eingeben.", false);
+  setPinHint("Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.", false);
   showScreen("home");
   loadHomeStat();
 }
