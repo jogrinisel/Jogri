@@ -114,9 +114,16 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   background: linear-gradient(to bottom, rgba(14,26,20,.97) 60%, transparent);
   pointer-events: none;
 }
-.hud-row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.hud-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .hud-name { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
-.hud-timer { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--gold); letter-spacing: .05em; }
+.hud-name { flex: 0 0 auto; }
+#hud-logout {
+  background: none; border: none; color: var(--muted);
+  font-size: 14px; cursor: pointer; padding: 2px 4px;
+  opacity: .6; line-height: 1;
+}
+#hud-logout:hover { opacity: 1; color: var(--white); }
+.hud-timer { margin-left: auto; font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--gold); letter-spacing: .05em; }
 .hud-timer.urgent { color: var(--red); animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: .4; } }
 
@@ -369,6 +376,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <div id="hud">
     <div class="hud-row1">
       <div class="hud-name" id="hud-name">–</div>
+      <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">⎋</button>
       <div class="hud-timer" id="hud-timer">12:00:00</div>
     </div>
     <div class="hud-bar-row">
@@ -1265,6 +1273,27 @@ function endChallenge() {
 
   showScreen("end");
   if (realtimeChannel) db.removeChannel(realtimeChannel);
+}
+
+// Leaves the current view without ending the running challenge.
+// localStorage stays intact so the same player can resume later (or someone
+// else, e.g. Admin, can log in in the meantime).
+function logoutToLogin() {
+  clearInterval(timerInterval);
+  stopGPS();
+  if (realtimeChannel) { db.removeChannel(realtimeChannel); realtimeChannel = null; }
+
+  playerName = "";
+  sessionId  = null;
+  collected  = new Set();
+  startTime  = null;
+
+  document.getElementById("firstname-input").value = "";
+  document.getElementById("lastname-input").value = "";
+  document.getElementById("pin-input").value = "";
+  setPinHint("Neuer Name → PIN wird neu festgelegt. Bekannter Name → PIN zum Fortsetzen eingeben.", false);
+  showScreen("home");
+  loadHomeStat();
 }
 
 function goHome() {
