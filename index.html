@@ -118,11 +118,13 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 .hud-name { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
 .hud-name { flex: 0 0 auto; }
 #hud-logout {
-  background: none; border: none; color: var(--muted);
-  font-size: 14px; cursor: pointer; padding: 2px 4px;
-  opacity: .6; line-height: 1;
+  background: rgba(255,255,255,.08); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .02em;
+  cursor: pointer; padding: 5px 10px; line-height: 1; white-space: nowrap;
+  pointer-events: auto;
 }
-#hud-logout:hover { opacity: 1; color: var(--white); }
+#hud-logout:hover { background: rgba(255,255,255,.15); color: var(--white); }
 .hud-timer { margin-left: auto; font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--gold); letter-spacing: .05em; }
 .hud-timer.urgent { color: var(--red); animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: .4; } }
@@ -376,7 +378,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <div id="hud">
     <div class="hud-row1">
       <div class="hud-name" id="hud-name">–</div>
-      <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">⎋</button>
+      <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">🚪 Abmelden</button>
       <div class="hud-timer" id="hud-timer">12:00:00</div>
     </div>
     <div class="hud-bar-row">
