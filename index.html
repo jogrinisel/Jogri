@@ -412,6 +412,8 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <div class="end-title" id="status-title">Willkommen zurück!</div>
   <div class="end-sub" id="status-sub">–</div>
   <button class="btn-primary" id="status-primary-btn" style="max-width:280px;margin-top:8px" onclick="statusPrimaryAction()">–</button>
+  <button class="home-leaderboard-btn" onclick="showMyActivitiesFromStatus()">Meine Aktivitäten / GPX hochladen</button>
+  <button class="home-leaderboard-btn" onclick="showLeaderboardFromStatus()">Live-Rangliste anzeigen</button>
   <button class="home-leaderboard-btn" onclick="closeStatusScreen()">Zurück</button>
 </div>
 
@@ -990,6 +992,7 @@ function quickLogPosition() {
         + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
         + "&tolerance=0"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
+        + "&timeInstant=2025"
         + "&returnGeometry=false&lang=de";
 
       const res  = await fetch(url);
@@ -1002,7 +1005,7 @@ function quickLogPosition() {
         return;
       }
 
-      const attrs   = data.results[0].attributes || {};
+      const attrs   = data.results[0].attributes || data.results[0].properties || {};
       const name    = attrs.gemname || attrs.name || attrs.label || "Unbekannt";
       const kanton  = attrs.kanton || "";
 
@@ -1138,6 +1141,7 @@ async function lookupGemeinde(lat, lng) {
       + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
       + "&tolerance=0"
       + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
+      + "&timeInstant=2025"
       + "&returnGeometry=false&lang=de";
 
     const res  = await fetch(url);
@@ -1148,7 +1152,7 @@ async function lookupGemeinde(lat, lng) {
       return;
     }
 
-    const attrs = data.results[0].attributes || {};
+    const attrs = data.results[0].attributes || data.results[0].properties || {};
     const name   = attrs.gemname || attrs.name || attrs.label || "Unbekannt";
     const kanton = attrs.kanton || "";
     setCurrentBar(name, kanton);
@@ -1431,6 +1435,22 @@ function showLeaderboardFromEnd() {
   toggleLeaderboard();
 }
 
+function showLeaderboardFromStatus() {
+  // Called from the post-login status screen — return there, not the map
+  lbReturnScreen = "status";
+  lbOpen = false;
+  toggleLeaderboard();
+}
+
+// "My Activities", but already logged in via the status screen — no need
+// to re-enter name/PIN, playerName is already known and verified.
+function showMyActivitiesFromStatus() {
+  myActivitiesPlayer = playerName;
+  document.getElementById("myact-title").textContent = "Aktivitäten – " + playerName;
+  showScreen("myactivities");
+  loadMyActivities();
+}
+
 // ══════════════════════════════════════════════════════════════════
 //  PLAYER DETAIL (mini progress map popup)
 // ══════════════════════════════════════════════════════════════════
@@ -1702,11 +1722,12 @@ async function processGpxUpload(sessionIdToUpdate, gpxText) {
         + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
         + "&tolerance=0"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
+        + "&timeInstant=2025"
         + "&returnGeometry=false&lang=de";
       const res = await fetch(url);
       const data = await res.json();
       if (data.results && data.results.length > 0) {
-        const attrs = data.results[0].attributes || {};
+        const attrs = data.results[0].attributes || data.results[0].properties || {};
         const name = attrs.gemname || attrs.name;
         const kanton = attrs.kanton || "";
         if (name && kanton === "BE") found.add(name);
