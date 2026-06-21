@@ -152,6 +152,16 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 #gps-dot.err { background: var(--red); }
 @keyframes glow { 50% { opacity: .3; } }
 
+#quick-log-btn {
+  position: absolute; top: 132px; right: 14px; z-index: 20;
+  background: var(--gold); border: none; color: var(--bg);
+  border-radius: 99px; padding: 7px 12px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  cursor: pointer; pointer-events: all;
+}
+#quick-log-btn:active { transform: scale(.96); }
+#quick-log-btn:disabled { opacity: .5; cursor: wait; }
+
 /* Leaderboard toggle */
 #lb-toggle {
   position: absolute; top: 90px; left: 14px; z-index: 20;
@@ -257,6 +267,23 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 .lb-entry { cursor: pointer; }
 
 /* ── PLAYER DETAIL PANEL ── */
+/* ── QUICK LOG OVERLAY ── */
+#quicklog-panel {
+  position: fixed; inset: 0; z-index: 27;
+  background: rgba(14,26,20,.92); display: none;
+  align-items: center; justify-content: center; padding: 24px;
+}
+#quicklog-panel.open { display: flex; }
+#quicklog-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px; max-width: 320px; width: 100%;
+  text-align: center;
+}
+#quicklog-status { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .05em; margin-bottom: 10px; }
+#quicklog-gemeinde { font-size: 26px; font-weight: 700; color: var(--white); letter-spacing: -.5px; margin-bottom: 6px; }
+#quicklog-sub { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 22px; min-height: 16px; }
+#quicklog-actions { display: flex; flex-direction: column; gap: 10px; }
+
 #player-detail-panel {
   position: fixed; inset: 0; z-index: 26;
   background: var(--bg); display: none; flex-direction: column;
@@ -279,6 +306,11 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   padding: 32px 24px; gap: 16px;
 }
 .end-icon { font-size: 48px; }
+.status-icon { font-size: 48px; }
+#screen-status {
+  background: var(--bg); align-items: center; justify-content: center;
+  padding: 32px 24px; gap: 16px;
+}
 .end-title { font-size: 32px; font-weight: 700; color: var(--white); text-align: center; letter-spacing: -1px; }
 .end-score { font-family: var(--mono); font-size: 56px; font-weight: 500; color: var(--green); letter-spacing: -2px; }
 .end-lbl { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .1em; margin-top: -8px; }
@@ -369,8 +401,18 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <input type="tel" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
   </div>
   <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
-  <button class="btn-primary" id="start-btn" onclick="startChallenge()">Challenge starten →</button>
+  <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
+  <button class="home-leaderboard-btn" onclick="showMyActivities()">Meine Aktivitäten / GPX hochladen</button>
   <button class="home-leaderboard-btn" onclick="showLeaderboardFromHome()">Live-Rangliste anzeigen</button>
+</div>
+
+<!-- STATUS (after login, before starting/resuming a run) -->
+<div id="screen-status" class="screen">
+  <div class="status-icon" id="status-icon">👋</div>
+  <div class="end-title" id="status-title">Willkommen zurück!</div>
+  <div class="end-sub" id="status-sub">–</div>
+  <button class="btn-primary" id="status-primary-btn" style="max-width:280px;margin-top:8px" onclick="statusPrimaryAction()">–</button>
+  <button class="home-leaderboard-btn" onclick="closeStatusScreen()">Zurück</button>
 </div>
 
 <!-- MAP -->
@@ -394,6 +436,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 
   <button id="lb-toggle" onclick="toggleLeaderboard()">🏆 Rangliste</button>
   <div id="gps-pill" onclick="toggleGPS()"><div id="gps-dot"></div><span id="gps-lbl">GPS starten</span></div>
+  <button id="quick-log-btn" onclick="quickLogPosition()">📍 Standort prüfen</button>
 
   <div id="collect-toast"></div>
 
@@ -418,6 +461,19 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <button class="lb-tab" id="lb-tab-live" onclick="switchLbTab('live')">Gerade unterwegs</button>
   </div>
   <div class="lb-list" id="lb-list"><div class="lb-empty">Lade Rangliste…</div></div>
+</div>
+
+<!-- Quick-log confirmation overlay (global) -->
+<div id="quicklog-panel">
+  <div id="quicklog-card">
+    <div id="quicklog-status">Suche Standort…</div>
+    <div id="quicklog-gemeinde">–</div>
+    <div id="quicklog-sub"></div>
+    <div id="quicklog-actions">
+      <button class="btn-primary" id="quicklog-confirm" onclick="confirmQuickLog()" style="display:none">Gemeinde loggen</button>
+      <button class="admin-delete-btn" onclick="closeQuickLog()">Abbrechen</button>
+    </div>
+  </div>
 </div>
 
 <!-- Player detail overlay (global, independent of active screen) -->
@@ -450,6 +506,16 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <button class="lb-close" onclick="closeAdminPanel()">✕</button>
   </div>
   <div class="admin-list" id="admin-list"><div class="lb-empty">Lade…</div></div>
+</div>
+
+<!-- MY ACTIVITIES / GPX UPLOAD -->
+<div id="screen-myactivities" class="screen">
+  <div class="admin-header">
+    <div class="admin-title" id="myact-title">Meine Aktivitäten</div>
+    <button class="lb-close" onclick="closeMyActivities()">✕</button>
+  </div>
+  <div class="admin-list" id="myact-list"><div class="lb-empty">Lade…</div></div>
+  <input type="file" id="gpx-file-input" accept=".gpx" style="display:none" onchange="onGpxFileSelected(event)">
 </div>
 
 <script>
@@ -587,7 +653,7 @@ function setPinHint(msg, isError) {
 // Hash of "admin" + secret PIN, salted the same way as hashPin(). Never store the PIN itself.
 const ADMIN_PIN_HASH = "79eb9d9bad6ebc25ca318664a4e54d5a4cfa72bf6701b16b15b2e4da3f3754ad";
 
-async function startChallenge() {
+async function loginAndCheckStatus() {
   const firstname = document.getElementById("firstname-input").value.trim();
   const lastname  = document.getElementById("lastname-input").value.trim();
   const name = (firstname + " " + lastname).trim();
@@ -620,7 +686,7 @@ async function startChallenge() {
     const ok = await verifyOrRegisterPin(name, pin);
     if (!ok) {
       startBtn.disabled = false;
-      startBtn.textContent = "Challenge starten →";
+      startBtn.textContent = "Einloggen →";
       return;
     }
   } catch(e) {
@@ -628,13 +694,110 @@ async function startChallenge() {
     // Fail open if Supabase unreachable, so the app still works offline
   }
 
+  startBtn.disabled = false;
+  startBtn.textContent = "Einloggen →";
   playerName = name;
+
+  await showStatusScreen();
+}
+
+// Checks whether this player already has a session running, and shows the
+// appropriate next step — resuming an existing run, or starting a new one.
+// This is the single gatekeeper that prevents the "logged in twice, two
+// parallel runs" bug: a new session is only ever created from here.
+async function showStatusScreen() {
+  showScreen("status");
+  document.getElementById("status-title").textContent = "Hallo " + playerName + "!";
+  document.getElementById("status-sub").textContent = "Lade Status…";
+  document.getElementById("status-primary-btn").style.display = "none";
+
+  let activeSession = null;
+
+  if (db) {
+    try {
+      const { data, error } = await db
+        .from("sessions")
+        .select("id, started_at, count, gemeinden, active")
+        .eq("player_name", playerName)
+        .eq("active", true)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        const elapsedMs = Date.now() - new Date(data.started_at).getTime();
+        const durationMs = CHALLENGE_DURATION_H * 3600 * 1000;
+        if (elapsedMs < durationMs) {
+          activeSession = data;
+        }
+      }
+    } catch(e) {
+      console.error("showStatusScreen lookup:", e);
+    }
+  }
+
+  const btn = document.getElementById("status-primary-btn");
+  btn.style.display = "block";
+
+  if (activeSession) {
+    document.getElementById("status-icon").textContent = "🚴";
+    document.getElementById("status-sub").textContent =
+      `Du hast bereits eine laufende Challenge mit ${activeSession.count} Gemeinde(n). Weiterfahren statt neu starten.`;
+    btn.textContent = "Weiterfahren →";
+    btn.onclick = () => resumeExistingSession(activeSession);
+  } else {
+    document.getElementById("status-icon").textContent = "🚀";
+    document.getElementById("status-sub").textContent =
+      "Du hast aktuell keine laufende Challenge. Bereit für eine neue Runde?";
+    btn.textContent = "Neue Challenge starten →";
+    btn.onclick = startNewChallenge;
+  }
+}
+
+function statusPrimaryAction() {
+  // Placeholder — real handler is assigned dynamically in showStatusScreen via btn.onclick
+}
+
+function closeStatusScreen() {
+  playerName = "";
+  goHome();
+}
+
+function resumeExistingSession(sessionData) {
+  sessionId  = sessionData.id;
+  collected  = new Set(sessionData.gemeinden || []);
+  startTime  = new Date(sessionData.started_at).getTime();
+
+  showScreen("map");
+  initMap();
+  document.getElementById("hud-name").textContent = playerName;
+  updateHUD();
+  refreshMapStyle();
+  startTimer();
+  startGPS();
+  subscribeRealtime();
+  persistLocalState();
+  showToast("👋 Weiter geht's, " + playerName + "!");
+}
+
+async function startNewChallenge() {
+  // Safety net: make sure no other session for this player is still marked
+  // active before creating a new one. This is what actually prevents two
+  // parallel runs — the status screen only suggests resuming, this enforces it.
+  if (db) {
+    try {
+      await db.from("sessions")
+        .update({ active: false })
+        .eq("player_name", playerName)
+        .eq("active", true);
+    } catch(e) {
+      console.error("startNewChallenge: failed to close old sessions:", e);
+    }
+  }
+
   sessionId  = crypto.randomUUID();
   collected  = new Set();
   startTime  = Date.now();
-
-  startBtn.disabled = false;
-  startBtn.textContent = "Challenge starten →";
 
   showScreen("map");
   initMap();
@@ -682,6 +845,22 @@ async function verifyOrRegisterPin(name, pin) {
 
   setPinHint("Falscher PIN für diesen Namen. Bitte erneut versuchen.", true);
   return false;
+}
+
+// Like verifyOrRegisterPin, but never creates a new player — used for
+// "My Activities", where a brand-new name simply has no activities yet.
+async function verifyPinStrict(name, pin) {
+  if (!db) return false;
+  const hash = await hashPin(name, pin);
+  const { data, error } = await db
+    .from("players")
+    .select("player_name, pin_hash")
+    .eq("player_name", name)
+    .maybeSingle();
+
+  if (error) { console.error("players lookup:", error); return false; }
+  if (!data) return false; // unknown name — nothing to show
+  return data.pin_hash === hash;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -776,6 +955,123 @@ function pad(n) { return String(n).padStart(2, "0"); }
 // ══════════════════════════════════════════════════════════════════
 function toggleGPS() { gpsActive ? stopGPS() : startGPS(); }
 
+// ══════════════════════════════════════════════════════════════════
+//  QUICK LOG (battery-friendly: fetch position once, show it,
+//  let the player confirm before counting the gemeinde)
+// ══════════════════════════════════════════════════════════════════
+let quickLogPending = null; // { name, kanton, lat, lng }
+
+function quickLogPosition() {
+  if (!navigator.geolocation) { showToast("GPS nicht verfügbar"); return; }
+
+  const panel  = document.getElementById("quicklog-panel");
+  const status = document.getElementById("quicklog-status");
+  const gemEl  = document.getElementById("quicklog-gemeinde");
+  const subEl  = document.getElementById("quicklog-sub");
+  const confirmBtn = document.getElementById("quicklog-confirm");
+
+  quickLogPending = null;
+  status.textContent = "Suche Standort…";
+  gemEl.textContent  = "–";
+  subEl.textContent  = "";
+  confirmBtn.style.display = "none";
+  panel.classList.add("open");
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    status.textContent = "Prüfe Gemeinde…";
+
+    try {
+      const { E, N } = wgs84ToLV95(lat, lng);
+      const url = "https://api3.geo.admin.ch/rest/services/all/MapServer/identify"
+        + "?geometryType=esriGeometryPoint"
+        + "&geometry=" + E + "," + N
+        + "&imageDisplay=1,1,1"
+        + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
+        + "&tolerance=0"
+        + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
+        + "&returnGeometry=false&lang=de";
+
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      if (!data.results || data.results.length === 0) {
+        status.textContent = "Standort gefunden";
+        gemEl.textContent  = "Keine Gemeinde erkannt";
+        subEl.textContent  = "Bist du innerhalb der Schweiz?";
+        return;
+      }
+
+      const attrs   = data.results[0].attributes || {};
+      const name    = attrs.gemname || attrs.name || attrs.label || "Unbekannt";
+      const kanton  = attrs.kanton || "";
+
+      status.textContent = "Dein aktueller Standort:";
+      gemEl.textContent  = name;
+
+      if (kanton !== "BE") {
+        subEl.textContent = "Nicht im Kanton Bern – zählt nicht.";
+      } else if (collected.has(name)) {
+        subEl.textContent = "Bereits gesammelt ✓";
+      } else {
+        subEl.textContent = "Noch nicht gesammelt";
+        confirmBtn.style.display = "block";
+        quickLogPending = { name, kanton, lat, lng };
+      }
+    } catch(e) {
+      console.error("quickLogPosition lookup:", e);
+      status.textContent = "Fehler bei der Gemeinde-Abfrage";
+      gemEl.textContent  = "–";
+    }
+  }, (err) => {
+    const msg = { 1: "GPS-Zugriff verweigert", 2: "Position nicht verfügbar", 3: "GPS Timeout" };
+    status.textContent = msg[err.code] || "GPS Fehler";
+    gemEl.textContent  = "–";
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+
+function confirmQuickLog() {
+  if (!quickLogPending) return;
+  collectGemeinde(quickLogPending.name);
+  closeQuickLog();
+}
+
+function closeQuickLog() {
+  document.getElementById("quicklog-panel").classList.remove("open");
+  quickLogPending = null;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  WAKE LOCK (keeps the screen on while the challenge is running,
+//  so background GPS throttling by the OS/browser is minimized)
+// ══════════════════════════════════════════════════════════════════
+let wakeLock = null;
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator)) return; // not supported on this browser
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => { wakeLock = null; });
+  } catch(e) {
+    console.warn("Wake Lock request failed:", e);
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
+}
+
+// Re-acquire the lock if the tab regains visibility while GPS is still active
+// (the OS releases the lock automatically when the tab/app goes to background)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && gpsActive && !wakeLock) {
+    requestWakeLock();
+  }
+});
+
 function startGPS() {
   if (!navigator.geolocation) { showToast("GPS nicht verfügbar"); return; }
   gpsActive = true;
@@ -783,6 +1079,7 @@ function startGPS() {
   gpsWatchId = navigator.geolocation.watchPosition(onPosition, onGPSError, {
     enableHighAccuracy: true, timeout: 15000, maximumAge: 3000
   });
+  requestWakeLock();
 }
 
 function stopGPS() {
@@ -791,6 +1088,7 @@ function stopGPS() {
   setGPSDot(""); document.getElementById("gps-lbl").textContent = "GPS starten";
   document.getElementById("current-bar").classList.remove("up");
   if (userMarker) { mapInstance.removeLayer(userMarker); userMarker = null; }
+  releaseWakeLock();
 }
 
 function setGPSDot(cls) { document.getElementById("gps-dot").className = cls; }
@@ -1218,6 +1516,228 @@ function openAdminPanel() {
 
 function closeAdminPanel() {
   goHome();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MY ACTIVITIES / GPX UPLOAD
+// ══════════════════════════════════════════════════════════════════
+let myActivitiesPlayer = null;
+let gpxTargetSessionId = null;
+
+async function showMyActivities() {
+  const firstname = document.getElementById("firstname-input").value.trim();
+  const lastname  = document.getElementById("lastname-input").value.trim();
+  const pin       = document.getElementById("pin-input").value.trim();
+  const name = (firstname + " " + lastname).trim();
+
+  if (!firstname || !lastname) {
+    setPinHint("Bitte zuerst Vor- und Nachname eingeben.", true);
+    return;
+  }
+  if (!/^\d{4}$/.test(pin)) {
+    setPinHint("Bitte deinen 4-stelligen PIN eingeben.", true);
+    return;
+  }
+
+  const ok = await verifyPinStrict(name, pin);
+  if (!ok) {
+    setPinHint("Unbekannter Name oder falscher PIN.", true);
+    return;
+  }
+
+  myActivitiesPlayer = name;
+  document.getElementById("myact-title").textContent = "Aktivitäten – " + name;
+  showScreen("myactivities");
+  loadMyActivities();
+}
+
+function closeMyActivities() {
+  myActivitiesPlayer = null;
+  goHome();
+}
+
+async function loadMyActivities() {
+  const el = document.getElementById("myact-list");
+  if (!db) { el.innerHTML = "<div class='lb-empty'>Keine Datenbankverbindung</div>"; return; }
+
+  try {
+    const { data: sessions, error } = await db
+      .from("sessions")
+      .select("id, count, started_at, active, gpx_imported")
+      .eq("player_name", myActivitiesPlayer)
+      .order("started_at", { ascending: false });
+
+    if (error) throw error;
+
+    if (!sessions || !sessions.length) {
+      el.innerHTML = "<div class='lb-empty'>Noch keine Aktivitäten vorhanden</div>";
+      return;
+    }
+
+    const durationMs = CHALLENGE_DURATION_H * 3600 * 1000;
+    el.innerHTML = sessions.map(s => {
+      const elapsedMs = s.started_at ? (Date.now() - new Date(s.started_at)) : Infinity;
+      const reallyActive = s.active && elapsedMs < durationMs;
+      const status = reallyActive ? "läuft noch" : "abgeschlossen";
+      const dateStr = s.started_at ? new Date(s.started_at).toLocaleString("de-CH", {
+        day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit"
+      }) : "–";
+      const gpxNote = s.gpx_imported ? " · GPX bereits ergänzt" : "";
+
+      return `<div class="admin-entry">
+        <div class="admin-info">
+          <div class="admin-pname">${dateStr}</div>
+          <div class="admin-detail">${s.count} Gem. · ${status}${gpxNote}</div>
+        </div>
+        ${reallyActive
+          ? `<div class="admin-detail">Erst nach Ende der Session möglich</div>`
+          : `<button class="admin-delete-btn admin-reset-btn" onclick="startGpxUpload('${s.id}')">GPX hinzufügen</button>`
+        }
+      </div>`;
+    }).join("");
+  } catch(e) {
+    console.error("loadMyActivities:", e);
+    el.innerHTML = "<div class='lb-empty'>Fehler beim Laden</div>";
+  }
+}
+
+function startGpxUpload(sessionIdToUpdate) {
+  gpxTargetSessionId = sessionIdToUpdate;
+  document.getElementById("gpx-file-input").click();
+}
+
+function onGpxFileSelected(event) {
+  const file = event.target.files[0];
+  event.target.value = ""; // reset so the same file can be re-selected later
+  if (!file || !gpxTargetSessionId) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      await processGpxUpload(gpxTargetSessionId, e.target.result);
+    } catch(err) {
+      console.error("GPX processing failed:", err);
+      alert("GPX-Datei konnte nicht verarbeitet werden.");
+    }
+    gpxTargetSessionId = null;
+  };
+  reader.readAsText(file);
+}
+
+function parseGpxTrackpoints(gpxText) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(gpxText, "application/xml");
+  const trkpts = Array.from(xml.getElementsByTagName("trkpt"));
+  return trkpts.map(pt => {
+    const lat = parseFloat(pt.getAttribute("lat"));
+    const lon = parseFloat(pt.getAttribute("lon"));
+    const timeEl = pt.getElementsByTagName("time")[0];
+    const time = timeEl ? new Date(timeEl.textContent).getTime() : null;
+    return { lat, lon, time };
+  }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
+}
+
+// Reduce point count for big tracks: only check points spaced apart in time,
+// since we only need to detect which gemeinde boundaries were crossed.
+function thinTrackpoints(points, minGapMs = 30000) {
+  if (!points.length) return points;
+  const out = [points[0]];
+  let lastTime = points[0].time;
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i];
+    if (p.time === null || lastTime === null || (p.time - lastTime) >= minGapMs) {
+      out.push(p);
+      lastTime = p.time;
+    }
+  }
+  return out;
+}
+
+async function processGpxUpload(sessionIdToUpdate, gpxText) {
+  if (!db) { alert("Keine Datenbankverbindung."); return; }
+
+  // Fetch the session to get its time window and existing gemeinden
+  const { data: session, error } = await db
+    .from("sessions")
+    .select("started_at, gemeinden, count")
+    .eq("id", sessionIdToUpdate)
+    .maybeSingle();
+
+  if (error || !session) { alert("Session nicht gefunden."); return; }
+
+  const startMs = new Date(session.started_at).getTime();
+  const endMs   = startMs + CHALLENGE_DURATION_H * 3600 * 1000;
+
+  const allPoints = parseGpxTrackpoints(gpxText);
+  if (!allPoints.length) { alert("Keine Punkte in der GPX-Datei gefunden."); return; }
+
+  // Only keep points that fall within this session's time window.
+  // Points without a timestamp are kept (some exports omit <time>), but if
+  // ALL points lack timestamps we can't verify the window — warn and abort.
+  const hasAnyTime = allPoints.some(p => p.time !== null);
+  if (!hasAnyTime) {
+    alert("Die GPX-Datei enthält keine Zeitstempel. Ein Abgleich mit dem Challenge-Zeitfenster ist nicht möglich.");
+    return;
+  }
+
+  const windowed = allPoints.filter(p => p.time === null || (p.time >= startMs && p.time <= endMs));
+  if (!windowed.length) {
+    alert("Keine Punkte dieser GPX-Datei liegen im Zeitfenster dieser Challenge-Session.");
+    return;
+  }
+
+  const thinned = thinTrackpoints(windowed);
+  alert(`Prüfe ${thinned.length} Punkte gegen Gemeindegrenzen — das kann einen Moment dauern.`);
+
+  const existing = new Set(session.gemeinden || []);
+  const found = new Set();
+
+  for (const p of thinned) {
+    try {
+      const { E, N } = wgs84ToLV95(p.lat, p.lon);
+      const url = "https://api3.geo.admin.ch/rest/services/all/MapServer/identify"
+        + "?geometryType=esriGeometryPoint"
+        + "&geometry=" + E + "," + N
+        + "&imageDisplay=1,1,1"
+        + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
+        + "&tolerance=0"
+        + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
+        + "&returnGeometry=false&lang=de";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const attrs = data.results[0].attributes || {};
+        const name = attrs.gemname || attrs.name;
+        const kanton = attrs.kanton || "";
+        if (name && kanton === "BE") found.add(name);
+      }
+    } catch(e) {
+      console.warn("GPX point lookup failed:", e);
+    }
+  }
+
+  const merged = new Set([...existing, ...found]);
+  const newlyAdded = [...found].filter(n => !existing.has(n));
+
+  const { error: updateErr } = await db.from("sessions").update({
+    gemeinden: Array.from(merged),
+    count: merged.size,
+    gpx_imported: true
+  }).eq("id", sessionIdToUpdate);
+
+  if (updateErr) {
+    console.error("GPX update failed:", updateErr);
+    alert("Speichern fehlgeschlagen.");
+    return;
+  }
+
+  if (newlyAdded.length) {
+    alert(`${newlyAdded.length} neue Gemeinde(n) ergänzt:\n${newlyAdded.join(", ")}`);
+  } else {
+    alert("Keine neuen Gemeinden gefunden — alle waren bereits erfasst.");
+  }
+
+  loadMyActivities();
 }
 
 async function loadAdminList() {
