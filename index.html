@@ -1576,6 +1576,12 @@ function closeMyActivities() {
   goHome();
 }
 
+// ⚠️ TESTING ONLY — set back to false before going live with real challenges!
+// While true, GPX upload skips both fairness checks (active-session block
+// and time-window filter), so old/unrelated GPX files can be used to test
+// the import pipeline itself.
+const GPX_TESTING_MODE = true;
+
 async function loadMyActivities() {
   const el = document.getElementById("myact-list");
   if (!db) { el.innerHTML = "<div class='lb-empty'>Keine Datenbankverbindung</div>"; return; }
@@ -1603,15 +1609,16 @@ async function loadMyActivities() {
         day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit"
       }) : "–";
       const gpxNote = s.gpx_imported ? " · GPX bereits ergänzt" : "";
+      const blockUpload = reallyActive && !GPX_TESTING_MODE;
 
       return `<div class="admin-entry">
         <div class="admin-info">
           <div class="admin-pname">${dateStr}</div>
           <div class="admin-detail">${s.count} Gem. · ${status}${gpxNote}</div>
         </div>
-        ${reallyActive
+        ${blockUpload
           ? `<div class="admin-detail">Erst nach Ende der Session möglich</div>`
-          : `<button class="admin-delete-btn admin-reset-btn" onclick="startGpxUpload('${s.id}')">GPX hinzufügen</button>`
+          : `<button class="admin-delete-btn admin-reset-btn" onclick="startGpxUpload('${s.id}')">GPX hinzufügen${GPX_TESTING_MODE ? " (Test)" : ""}</button>`
         }
       </div>`;
     }).join("");
@@ -1691,23 +1698,29 @@ async function processGpxUpload(sessionIdToUpdate, gpxText) {
   const allPoints = parseGpxTrackpoints(gpxText);
   if (!allPoints.length) { alert("Keine Punkte in der GPX-Datei gefunden."); return; }
 
-  // Only keep points that fall within this session's time window.
-  // Points without a timestamp are kept (some exports omit <time>), but if
-  // ALL points lack timestamps we can't verify the window — warn and abort.
-  const hasAnyTime = allPoints.some(p => p.time !== null);
-  if (!hasAnyTime) {
-    alert("Die GPX-Datei enthält keine Zeitstempel. Ein Abgleich mit dem Challenge-Zeitfenster ist nicht möglich.");
-    return;
-  }
-
-  const windowed = allPoints.filter(p => p.time === null || (p.time >= startMs && p.time <= endMs));
-  if (!windowed.length) {
-    alert("Keine Punkte dieser GPX-Datei liegen im Zeitfenster dieser Challenge-Session.");
-    return;
+  let windowed;
+  if (GPX_TESTING_MODE) {
+    // Testing: use every point regardless of timestamp/time-window.
+    windowed = allPoints;
+  } else {
+    // Only keep points that fall within this session's time window.
+    // Points without a timestamp are kept (some exports omit <time>), but if
+    // ALL points lack timestamps we can't verify the window — warn and abort.
+    const hasAnyTime = allPoints.some(p => p.time !== null);
+    if (!hasAnyTime) {
+      alert("Die GPX-Datei enthält keine Zeitstempel. Ein Abgleich mit dem Challenge-Zeitfenster ist nicht möglich.");
+      return;
+    }
+    windowed = allPoints.filter(p => p.time === null || (p.time >= startMs && p.time <= endMs));
+    if (!windowed.length) {
+      alert("Keine Punkte dieser GPX-Datei liegen im Zeitfenster dieser Challenge-Session.");
+      return;
+    }
   }
 
   const thinned = thinTrackpoints(windowed);
-  alert(`Prüfe ${thinned.length} Punkte gegen Gemeindegrenzen — das kann einen Moment dauern.`);
+  const testNote = GPX_TESTING_MODE ? " (TEST-MODUS: Zeitfenster-Filter deaktiviert)" : "";
+  alert(`Prüfe ${thinned.length} Punkte gegen Gemeindegrenzen${testNote} — das kann einen Moment dauern.`);
 
   const existing = new Set(session.gemeinden || []);
   const found = new Set();
