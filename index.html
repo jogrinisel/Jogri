@@ -177,7 +177,31 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 99px; padding: 7px 12px;
   font-family: var(--mono); font-size: 11px; color: var(--white);
-  cursor: pointer;
+  cursor: pointer; pointer-events: all;
+}
+
+#myact-toggle {
+  position: absolute; top: 132px; left: 14px; z-index: 20;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 99px; padding: 7px 12px;
+  font-family: var(--mono); font-size: 11px; color: var(--white);
+  cursor: pointer; pointer-events: all;
+}
+
+/* Dimming overlay: shown only while logged in but no session running yet */
+#map-dim-overlay {
+  position: absolute; inset: 0; z-index: 15;
+  background: rgba(14,26,20,.55);
+  pointer-events: none; display: none;
+}
+#map-dim-overlay.show { display: block; }
+
+#session-action-btn {
+  position: absolute; bottom: 24px; left: 16px; right: 16px; z-index: 21;
+  max-width: 360px; margin: 0 auto;
+}
+#session-action-btn.cancel-style {
+  background: none; border: 1px solid #e0182d; color: #e0182d;
 }
 
 /* Collected toast */
@@ -316,10 +340,6 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 }
 .end-icon { font-size: 48px; }
 .status-icon { font-size: 48px; }
-#screen-status {
-  background: var(--bg); align-items: center; justify-content: center;
-  padding: 32px 24px; gap: 16px;
-}
 .end-title { font-size: 32px; font-weight: 700; color: var(--white); text-align: center; letter-spacing: -1px; }
 .end-score { font-family: var(--mono); font-size: 56px; font-weight: 500; color: var(--green); letter-spacing: -2px; }
 .end-lbl { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .1em; margin-top: -8px; }
@@ -411,30 +431,20 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   </div>
   <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
   <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
-  <button class="home-leaderboard-btn" onclick="showMyActivities()">Meine Aktivitäten / GPX hochladen</button>
-  <button class="home-leaderboard-btn" onclick="showLeaderboardFromHome()">Live-Rangliste anzeigen</button>
 </div>
 
-<!-- STATUS (after login, before starting/resuming a run) -->
-<div id="screen-status" class="screen">
-  <div class="status-icon" id="status-icon">👋</div>
-  <div class="end-title" id="status-title">Willkommen zurück!</div>
-  <div class="end-sub" id="status-sub">–</div>
-  <button class="btn-primary" id="status-primary-btn" style="max-width:280px;margin-top:8px" onclick="statusPrimaryAction()">–</button>
-  <button class="home-leaderboard-btn" onclick="showMyActivitiesFromStatus()">Meine Aktivitäten / GPX hochladen</button>
-  <button class="home-leaderboard-btn" onclick="showLeaderboardFromStatus()">Live-Rangliste anzeigen</button>
-  <button class="home-leaderboard-btn" onclick="closeStatusScreen()">Zurück</button>
-</div>
-
-<!-- MAP -->
+<!-- MAP / DASHBOARD (single persistent screen after login) -->
 <div id="screen-map" class="screen">
   <div id="map"></div>
+
+  <!-- Dimming overlay shown when no session is running yet -->
+  <div id="map-dim-overlay"></div>
 
   <div id="hud">
     <div class="hud-row1">
       <div class="hud-name" id="hud-name">–</div>
       <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">🚪 Abmelden</button>
-      <div class="hud-timer" id="hud-timer">12:00:00</div>
+      <div class="hud-timer" id="hud-timer">–</div>
     </div>
     <div class="hud-bar-row">
       <div class="hud-count" id="hud-count">0 <small>/ 334</small></div>
@@ -446,6 +456,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   </div>
 
   <button id="lb-toggle" onclick="toggleLeaderboard()">🏆 Rangliste</button>
+  <button id="myact-toggle" onclick="showMyActivitiesFromMap()">📋 Meine Sessions</button>
   <div id="gps-pill" onclick="toggleGPS()"><div id="gps-dot"></div><span id="gps-lbl">GPS starten</span></div>
   <button id="quick-log-btn" onclick="quickLogPosition()">📍 Standort prüfen</button>
   <button id="gpx-live-btn" onclick="startGpxUploadForActiveSession()">🗺️ GPX ergänzen</button>
@@ -461,6 +472,9 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     </div>
     <div class="cur-badge new" id="cur-badge">Neu ✓</div>
   </div>
+
+  <!-- Session control button: starts / resumes / cancels depending on state -->
+  <button class="btn-primary" id="session-action-btn" onclick="sessionActionClick()">Session starten →</button>
 </div>
 
 <!-- Leaderboard overlay (global, independent of active screen) -->
@@ -508,7 +522,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <div class="end-score" id="end-score">0</div>
   <div class="end-lbl">Gemeinden gesammelt</div>
   <div class="end-sub" id="end-sub">Dein Resultat wurde gespeichert.</div>
-  <button class="btn-primary" onclick="goHome()" style="max-width:280px;margin-top:8px">Nochmals versuchen</button>
+  <button class="btn-primary" onclick="backToDashboardFromEnd()" style="max-width:280px;margin-top:8px">Nochmals versuchen</button>
   <button class="btn-primary" onclick="showLeaderboardFromEnd()" style="max-width:280px;background:var(--surface);color:var(--white);border:1px solid var(--border)">Rangliste anzeigen</button>
 </div>
 
@@ -711,20 +725,26 @@ async function loginAndCheckStatus() {
   startBtn.textContent = "Einloggen →";
   playerName = name;
 
-  await showStatusScreen();
+  await enterDashboard();
 }
 
-// Checks whether this player already has a session running, and shows the
-// appropriate next step — resuming an existing run, or starting a new one.
-// This is the single gatekeeper that prevents the "logged in twice, two
-// parallel runs" bug: a new session is only ever created from here.
-async function showStatusScreen() {
-  showScreen("status");
-  document.getElementById("status-title").textContent = "Hallo " + playerName + "!";
-  document.getElementById("status-sub").textContent = "Lade Status…";
-  document.getElementById("status-primary-btn").style.display = "none";
+// ══════════════════════════════════════════════════════════════════
+//  UNIFIED DASHBOARD (single screen for: logged-in-idle and
+//  session-running states — buttons stay in the same place, only their
+//  label/behavior and the map dimming change)
+// ══════════════════════════════════════════════════════════════════
+let dashboardActiveSession = null; // session row from DB if one is running, else null
 
-  let activeSession = null;
+// Entry point right after login. Checks for an existing active session and
+// shows the dashboard accordingly. This is the single gatekeeper that
+// prevents the "logged in twice, two parallel runs" bug — a new session is
+// only ever created via startNewChallenge(), never silently here.
+async function enterDashboard() {
+  showScreen("map");
+  initMap();
+  document.getElementById("hud-name").textContent = playerName;
+
+  dashboardActiveSession = null;
 
   if (db) {
     try {
@@ -741,39 +761,86 @@ async function showStatusScreen() {
         const elapsedMs = Date.now() - new Date(data.started_at).getTime();
         const durationMs = CHALLENGE_DURATION_H * 3600 * 1000;
         if (elapsedMs < durationMs) {
-          activeSession = data;
+          dashboardActiveSession = data;
         }
       }
     } catch(e) {
-      console.error("showStatusScreen lookup:", e);
+      console.error("enterDashboard lookup:", e);
     }
   }
 
-  const btn = document.getElementById("status-primary-btn");
-  btn.style.display = "block";
-
-  if (activeSession) {
-    document.getElementById("status-icon").textContent = "🚴";
-    document.getElementById("status-sub").textContent =
-      `Du hast bereits eine laufende Challenge mit ${activeSession.count} Gemeinde(n). Weiterfahren statt neu starten.`;
-    btn.textContent = "Weiterfahren →";
-    btn.onclick = () => resumeExistingSession(activeSession);
+  if (dashboardActiveSession) {
+    resumeExistingSession(dashboardActiveSession);
   } else {
-    document.getElementById("status-icon").textContent = "🚀";
-    document.getElementById("status-sub").textContent =
-      "Du hast aktuell keine laufende Challenge. Bereit für eine neue Runde?";
-    btn.textContent = "Neue Challenge starten →";
-    btn.onclick = startNewChallenge;
+    showIdleDashboard();
   }
 }
 
-function statusPrimaryAction() {
-  // Placeholder — real handler is assigned dynamically in showStatusScreen via btn.onclick
+// State: logged in, no session running. Map is dimmed, session-related
+// buttons (GPS, quick-log, GPX) are hidden, only the start button is active.
+function showIdleDashboard() {
+  sessionId = null;
+  collected = new Set();
+  startTime = null;
+
+  document.getElementById("map-dim-overlay").classList.add("show");
+  document.getElementById("hud-timer").textContent = "–";
+  updateHUD();
+
+  document.getElementById("gps-pill").style.display = "none";
+  document.getElementById("quick-log-btn").style.display = "none";
+  document.getElementById("gpx-live-btn").style.display = "none";
+  document.getElementById("current-bar").classList.remove("up");
+
+  const btn = document.getElementById("session-action-btn");
+  btn.classList.remove("cancel-style");
+  btn.textContent = "Session starten →";
+  btn.onclick = startNewChallenge;
+
+  clearLocalState();
 }
 
-function closeStatusScreen() {
-  playerName = "";
-  goHome();
+// State: a session is actively running. Map is full brightness, all
+// session-related buttons are visible, main button becomes "Abbrechen".
+function showRunningDashboard() {
+  document.getElementById("map-dim-overlay").classList.remove("show");
+
+  document.getElementById("gps-pill").style.display = "flex";
+  document.getElementById("quick-log-btn").style.display = "block";
+  document.getElementById("gpx-live-btn").style.display = "block";
+
+  const btn = document.getElementById("session-action-btn");
+  btn.classList.add("cancel-style");
+  btn.textContent = "Session abbrechen";
+  btn.onclick = confirmCancelSession;
+}
+
+function sessionActionClick() {
+  // no-op placeholder; real handler is assigned dynamically via btn.onclick
+  // in showIdleDashboard()/showRunningDashboard()
+}
+
+function confirmCancelSession() {
+  if (!confirm("Session wirklich abbrechen? Dein bisheriger Fortschritt bleibt für die Bestenliste gespeichert, aber die Challenge endet jetzt.")) return;
+  cancelCurrentSession();
+}
+
+async function cancelCurrentSession() {
+  clearInterval(timerInterval);
+  stopGPS();
+  if (realtimeChannel) { db.removeChannel(realtimeChannel); realtimeChannel = null; }
+
+  if (db && sessionId) {
+    try {
+      await db.from("sessions").update({ active: false }).eq("id", sessionId);
+    } catch(e) {
+      console.error("cancelCurrentSession:", e);
+    }
+  }
+
+  clearLocalState();
+  showIdleDashboard();
+  showToast("Session abgebrochen");
 }
 
 function resumeExistingSession(sessionData) {
@@ -781,22 +848,20 @@ function resumeExistingSession(sessionData) {
   collected  = new Set(sessionData.gemeinden || []);
   startTime  = new Date(sessionData.started_at).getTime();
 
-  showScreen("map");
-  initMap();
-  document.getElementById("hud-name").textContent = playerName;
   updateHUD();
   refreshMapStyle();
   startTimer();
   startGPS();
   subscribeRealtime();
   persistLocalState();
+  showRunningDashboard();
   showToast("👋 Weiter geht's, " + playerName + "!");
 }
 
 async function startNewChallenge() {
   // Safety net: make sure no other session for this player is still marked
   // active before creating a new one. This is what actually prevents two
-  // parallel runs — the status screen only suggests resuming, this enforces it.
+  // parallel runs.
   if (db) {
     try {
       await db.from("sessions")
@@ -812,14 +877,14 @@ async function startNewChallenge() {
   collected  = new Set();
   startTime  = Date.now();
 
-  showScreen("map");
-  initMap();
-  document.getElementById("hud-name").textContent = playerName;
+  updateHUD();
+  refreshMapStyle();
   startTimer();
   startGPS();
   saveSessionStart();
   subscribeRealtime();
   persistLocalState();
+  showRunningDashboard();
 }
 
 // Returns true if login is OK (new or correct PIN), false if PIN was wrong
@@ -938,6 +1003,7 @@ function tryResumeChallenge() {
   startTimer();
   startGPS();
   subscribeRealtime();
+  showRunningDashboard();
   showToast("👋 Willkommen zurück, " + playerName + "!");
   return true;
 }
@@ -1446,20 +1512,20 @@ function showLeaderboardFromEnd() {
   toggleLeaderboard();
 }
 
-function showLeaderboardFromStatus() {
-  // Called from the post-login status screen — return there, not the map
-  lbReturnScreen = "status";
+function showLeaderboardFromMap() {
+  // Called from the dashboard (logged in, idle or running) — return there
+  lbReturnScreen = "map";
   lbOpen = false;
   toggleLeaderboard();
 }
 
 let myActReturnScreen = "home";
 
-// "My Activities", but already logged in via the status screen — no need
-// to re-enter name/PIN, playerName is already known and verified.
-function showMyActivitiesFromStatus() {
+// "My Activities" from the unified dashboard — playerName is already known
+// and verified, no need to re-enter name/PIN.
+function showMyActivitiesFromMap() {
   myActivitiesPlayer = playerName;
-  myActReturnScreen = "status";
+  myActReturnScreen = "map";
   document.getElementById("myact-title").textContent = "Aktivitäten – " + playerName;
   showScreen("myactivities");
   loadMyActivities();
@@ -1588,8 +1654,8 @@ async function showMyActivities() {
 
 function closeMyActivities() {
   myActivitiesPlayer = null;
-  if (myActReturnScreen === "status" && playerName) {
-    showScreen("status");
+  if (myActReturnScreen === "map" && playerName) {
+    showScreen("map");
   } else {
     goHome();
   }
@@ -1935,9 +2001,18 @@ function endChallenge() {
   if (realtimeChannel) db.removeChannel(realtimeChannel);
 }
 
-// Leaves the current view without ending the running challenge.
-// localStorage stays intact so the same player can resume later (or someone
-// else, e.g. Admin, can log in in the meantime).
+// Player is still known (playerName set) at this point — no need to log in
+// again, just go back to the idle dashboard ready for a new session.
+function backToDashboardFromEnd() {
+  showScreen("map");
+  showIdleDashboard();
+}
+
+// Logs the player out and returns to the login screen. Clears localStorage
+// so a different player (or this one with a different name) starting fresh
+// won't accidentally resume this session. To truly continue later, log back
+// in with the same name+PIN — enterDashboard() looks up the active session
+// in the database directly, independent of localStorage.
 function logoutToLogin() {
   clearInterval(timerInterval);
   stopGPS();
@@ -1952,6 +2027,7 @@ function logoutToLogin() {
   sessionId  = null;
   collected  = new Set();
   startTime  = null;
+  dashboardActiveSession = null;
 
   document.getElementById("firstname-input").value = "";
   document.getElementById("lastname-input").value = "";
