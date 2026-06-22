@@ -162,6 +162,15 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 #quick-log-btn:active { transform: scale(.96); }
 #quick-log-btn:disabled { opacity: .5; cursor: wait; }
 
+#gpx-live-btn {
+  position: absolute; top: 174px; right: 14px; z-index: 20;
+  background: var(--surface); border: 1px solid var(--border); color: var(--white);
+  border-radius: 99px; padding: 7px 12px;
+  font-family: var(--mono); font-size: 11px;
+  cursor: pointer; pointer-events: all;
+}
+#gpx-live-btn:active { transform: scale(.96); }
+
 /* Leaderboard toggle */
 #lb-toggle {
   position: absolute; top: 90px; left: 14px; z-index: 20;
@@ -439,6 +448,8 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <button id="lb-toggle" onclick="toggleLeaderboard()">🏆 Rangliste</button>
   <div id="gps-pill" onclick="toggleGPS()"><div id="gps-dot"></div><span id="gps-lbl">GPS starten</span></div>
   <button id="quick-log-btn" onclick="quickLogPosition()">📍 Standort prüfen</button>
+  <button id="gpx-live-btn" onclick="startGpxUploadForActiveSession()">🗺️ GPX ergänzen</button>
+  <input type="file" id="gpx-file-input-live" accept=".gpx" style="display:none" onchange="onGpxFileSelectedLive(event)">
 
   <div id="collect-toast"></div>
 
@@ -1651,6 +1662,40 @@ function onGpxFileSelected(event) {
   reader.readAsText(file);
 }
 
+// Same idea, but triggered from inside the live map screen for the
+// currently running session — no login/logout round-trip needed, and the
+// map/HUD refresh in place afterwards instead of reloading a separate list.
+function startGpxUploadForActiveSession() {
+  if (!sessionId) { showToast("Keine aktive Session"); return; }
+  document.getElementById("gpx-file-input-live").click();
+}
+
+function onGpxFileSelectedLive(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file || !sessionId) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const addedNames = await processGpxUpload(sessionId, e.target.result, { silent: true });
+      if (addedNames && addedNames.length) {
+        addedNames.forEach(n => collected.add(n));
+        updateHUD();
+        refreshMapStyle();
+        persistLocalState();
+        showToast(`🗺️ ${addedNames.length} Gemeinde(n) per GPX ergänzt`);
+      } else {
+        showToast("Keine neuen Gemeinden im GPX gefunden");
+      }
+    } catch(err) {
+      console.error("GPX processing failed:", err);
+      showToast("GPX-Datei konnte nicht verarbeitet werden");
+    }
+  };
+  reader.readAsText(file);
+}
+
 function parseGpxTrackpoints(gpxText) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(gpxText, "application/xml");
@@ -1680,8 +1725,11 @@ function thinTrackpoints(points, minGapMs = 30000) {
   return out;
 }
 
-async function processGpxUpload(sessionIdToUpdate, gpxText) {
-  if (!db) { alert("Keine Datenbankverbindung."); return; }
+async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
+  const silent = !!options.silent;
+  const notify = (msg) => { if (!silent) alert(msg); };
+
+  if (!db) { notify("Keine Datenbankverbindung."); return []; }
 
   // Fetch the session to get its time window and existing gemeinden
   const { data: session, error } = await db
@@ -1690,13 +1738,13 @@ async function processGpxUpload(sessionIdToUpdate, gpxText) {
     .eq("id", sessionIdToUpdate)
     .maybeSingle();
 
-  if (error || !session) { alert("Session nicht gefunden."); return; }
+  if (error || !session) { notify("Session nicht gefunden."); return []; }
 
   const startMs = new Date(session.started_at).getTime();
   const endMs   = startMs + CHALLENGE_DURATION_H * 3600 * 1000;
 
   const allPoints = parseGpxTrackpoints(gpxText);
-  if (!allPoints.length) { alert("Keine Punkte in der GPX-Datei gefunden."); return; }
+  if (!allPoints.length) { notify("Keine Punkte in der GPX-Datei gefunden."); return []; }
 
   let windowed;
   if (GPX_TESTING_MODE) {
@@ -1708,19 +1756,20 @@ async function processGpxUpload(sessionIdToUpdate, gpxText) {
     // ALL points lack timestamps we can't verify the window — warn and abort.
     const hasAnyTime = allPoints.some(p => p.time !== null);
     if (!hasAnyTime) {
-      alert("Die GPX-Datei enthält keine Zeitstempel. Ein Abgleich mit dem Challenge-Zeitfenster ist nicht möglich.");
-      return;
+      notify("Die GPX-Datei enthält keine Zeitstempel. Ein Abgleich mit dem Challenge-Zeitfenster ist nicht möglich.");
+      return [];
     }
     windowed = allPoints.filter(p => p.time === null || (p.time >= startMs && p.time <= endMs));
     if (!windowed.length) {
-      alert("Keine Punkte dieser GPX-Datei liegen im Zeitfenster dieser Challenge-Session.");
-      return;
+      notify("Keine Punkte dieser GPX-Datei liegen im Zeitfenster dieser Challenge-Session.");
+      return [];
     }
   }
 
   const thinned = thinTrackpoints(windowed);
   const testNote = GPX_TESTING_MODE ? " (TEST-MODUS: Zeitfenster-Filter deaktiviert)" : "";
-  alert(`Prüfe ${thinned.length} Punkte gegen Gemeindegrenzen${testNote} — das kann einen Moment dauern.`);
+  if (!silent) alert(`Prüfe ${thinned.length} Punkte gegen Gemeindegrenzen${testNote} — das kann einen Moment dauern.`);
+  else showToast(`🗺️ Prüfe ${thinned.length} GPX-Punkte…`);
 
   const existing = new Set(session.gemeinden || []);
   const found = new Set();
@@ -1761,17 +1810,20 @@ async function processGpxUpload(sessionIdToUpdate, gpxText) {
 
   if (updateErr) {
     console.error("GPX update failed:", updateErr);
-    alert("Speichern fehlgeschlagen.");
-    return;
+    notify("Speichern fehlgeschlagen.");
+    return [];
   }
 
-  if (newlyAdded.length) {
-    alert(`${newlyAdded.length} neue Gemeinde(n) ergänzt:\n${newlyAdded.join(", ")}`);
-  } else {
-    alert("Keine neuen Gemeinden gefunden — alle waren bereits erfasst.");
+  if (!silent) {
+    if (newlyAdded.length) {
+      alert(`${newlyAdded.length} neue Gemeinde(n) ergänzt:\n${newlyAdded.join(", ")}`);
+    } else {
+      alert("Keine neuen Gemeinden gefunden — alle waren bereits erfasst.");
+    }
+    loadMyActivities();
   }
 
-  loadMyActivities();
+  return newlyAdded;
 }
 
 async function loadAdminList() {
