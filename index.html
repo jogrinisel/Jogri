@@ -988,9 +988,9 @@ function quickLogPosition() {
       const url = "https://api3.geo.admin.ch/rest/services/all/MapServer/identify"
         + "?geometryType=esriGeometryPoint"
         + "&geometry=" + E + "," + N
-        + "&imageDisplay=1,1,1"
-        + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
-        + "&tolerance=0"
+        + "&imageDisplay=0,0,0"
+        + "&mapExtent=0,0,0,0"
+        + "&tolerance=5"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
         + "&timeInstant=2025"
         + "&returnGeometry=false&lang=de";
@@ -1137,9 +1137,9 @@ async function lookupGemeinde(lat, lng) {
     const url = "https://api3.geo.admin.ch/rest/services/all/MapServer/identify"
       + "?geometryType=esriGeometryPoint"
       + "&geometry=" + E + "," + N
-      + "&imageDisplay=1,1,1"
-      + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
-      + "&tolerance=0"
+      + "&imageDisplay=0,0,0"
+      + "&mapExtent=0,0,0,0"
+      + "&tolerance=5"
       + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
       + "&timeInstant=2025"
       + "&returnGeometry=false&lang=de";
@@ -1718,9 +1718,9 @@ async function processGpxUpload(sessionIdToUpdate, gpxText) {
       const url = "https://api3.geo.admin.ch/rest/services/all/MapServer/identify"
         + "?geometryType=esriGeometryPoint"
         + "&geometry=" + E + "," + N
-        + "&imageDisplay=1,1,1"
-        + "&mapExtent=" + (E-1) + "," + (N-1) + "," + (E+1) + "," + (N+1)
-        + "&tolerance=0"
+        + "&imageDisplay=0,0,0"
+        + "&mapExtent=0,0,0,0"
+        + "&tolerance=5"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
         + "&timeInstant=2025"
         + "&returnGeometry=false&lang=de";
