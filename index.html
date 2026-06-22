@@ -786,6 +786,7 @@ function showIdleDashboard() {
   document.getElementById("map-dim-overlay").classList.add("show");
   document.getElementById("hud-timer").textContent = "–";
   updateHUD();
+  refreshMapStyle();
 
   document.getElementById("gps-pill").style.display = "none";
   document.getElementById("quick-log-btn").style.display = "none";
@@ -1571,6 +1572,37 @@ async function openPlayerDetail(playerNameClicked, sessionId) {
   }
 }
 
+// Shows the progress map for one specific session by its exact ID — used by
+// "Meine Sessions", where the session to show is always unambiguous
+// (the user clicked that exact row), unlike the leaderboard's name-based lookup.
+async function openSessionDetail(sessionIdToShow, label) {
+  if (!db) { showToast("Keine Datenbankverbindung"); return; }
+
+  document.getElementById("pd-title").textContent = label;
+  document.getElementById("player-detail-panel").classList.add("open");
+  pdOpen = true;
+
+  try {
+    const { data, error } = await db
+      .from("sessions")
+      .select("gemeinden, count")
+      .eq("id", sessionIdToShow)
+      .maybeSingle();
+
+    if (error || !data) {
+      document.getElementById("pd-count").textContent = "0";
+      return;
+    }
+
+    const gems = data.gemeinden || [];
+    document.getElementById("pd-count").textContent = data.count || gems.length;
+
+    renderPlayerDetailMap(gems);
+  } catch(e) {
+    console.error("openSessionDetail:", e);
+  }
+}
+
 function renderPlayerDetailMap(gemeindenList) {
   const gemSet = new Set(gemeindenList);
 
@@ -1697,9 +1729,9 @@ async function loadMyActivities() {
       const blockUpload = reallyActive && !GPX_TESTING_MODE;
 
       return `<div class="admin-entry">
-        <div class="admin-info">
+        <div class="admin-info" style="cursor:pointer" onclick="openSessionDetail('${s.id}', '${dateStr}')">
           <div class="admin-pname">${dateStr}</div>
-          <div class="admin-detail">${s.count} Gem. · ${status}${gpxNote}</div>
+          <div class="admin-detail">${s.count} Gem. · ${status}${gpxNote} · Karte ansehen</div>
         </div>
         ${blockUpload
           ? `<div class="admin-detail">Erst nach Ende der Session möglich</div>`
