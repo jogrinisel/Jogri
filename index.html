@@ -1453,10 +1453,13 @@ function showLeaderboardFromStatus() {
   toggleLeaderboard();
 }
 
+let myActReturnScreen = "home";
+
 // "My Activities", but already logged in via the status screen — no need
 // to re-enter name/PIN, playerName is already known and verified.
 function showMyActivitiesFromStatus() {
   myActivitiesPlayer = playerName;
+  myActReturnScreen = "status";
   document.getElementById("myact-title").textContent = "Aktivitäten – " + playerName;
   showScreen("myactivities");
   loadMyActivities();
@@ -1577,6 +1580,7 @@ async function showMyActivities() {
   }
 
   myActivitiesPlayer = name;
+  myActReturnScreen = "home";
   document.getElementById("myact-title").textContent = "Aktivitäten – " + name;
   showScreen("myactivities");
   loadMyActivities();
@@ -1584,7 +1588,11 @@ async function showMyActivities() {
 
 function closeMyActivities() {
   myActivitiesPlayer = null;
-  goHome();
+  if (myActReturnScreen === "status" && playerName) {
+    showScreen("status");
+  } else {
+    goHome();
+  }
 }
 
 // ⚠️ TESTING ONLY — set back to false before going live with real challenges!
@@ -1934,6 +1942,11 @@ function logoutToLogin() {
   clearInterval(timerInterval);
   stopGPS();
   if (realtimeChannel) { db.removeChannel(realtimeChannel); realtimeChannel = null; }
+
+  // Important: clear localStorage too, otherwise tryResumeChallenge() would
+  // silently resurrect this exact session on the next page load/boot,
+  // bypassing whatever name the player types in next.
+  clearLocalState();
 
   playerName = "";
   sessionId  = null;
