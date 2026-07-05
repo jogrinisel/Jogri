@@ -418,7 +418,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   </div>
   <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
   <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
-  <a class="home-leaderboard-btn" href="/anleitung.pdf" target="_blank" rel="noopener">📄 Infos &amp; Anleitung</a>
+  <a class="home-leaderboard-btn" href="/les_communes_de_berne.pdf" target="_blank" rel="noopener">📄 Infos &amp; Anleitung</a>
 </div>
 
 <!-- MAP / DASHBOARD (single persistent screen after login) -->
@@ -1710,17 +1710,13 @@ function renderBezirkHeatmap(gemeindenList) {
     }
   }).addTo(pdMapInstance);
 
-  // Draw bezirk outlines as a separate layer by grouping communes and
-  // computing a merged boundary — we approximate this by styling border
-  // only when the neighbour is in a different bezirk.
-  // Simpler approach: redraw with a thick border of the same colour,
-  // which visually merges communes into bezirke.
+  // Thin bezirk-coloured outline to visually separate bezirke
   L.geoJSON(BERN_GEOJSON, {
     style: f => {
       const gem = f.properties?.name || String(f.id);
       const bz  = GEMEINDE_BEZIRK[gem] || "Unbekannt";
       const col = BEZIRK_COLOR[bz] || "#aaaaaa";
-      return { fillColor: "transparent", fillOpacity: 0, color: col, weight: 3, opacity: 0.6 };
+      return { fillColor: "transparent", fillOpacity: 0, color: col, weight: 1.5, opacity: 0.35 };
     }
   }).addTo(pdMapInstance);
 
@@ -1769,14 +1765,16 @@ function renderBezirkHeatmap(gemeindenList) {
     const lbl = L.divIcon({
       className: "",
       html: `<div style="
-        background:white;border-radius:6px;padding:3px 7px;
-        font-family:monospace;font-size:11px;font-weight:700;
-        color:${col};border:2px solid ${col};
-        box-shadow:0 1px 4px rgba(0,0,0,.25);
-        white-space:nowrap;text-align:center;line-height:1.4">
-        ${SHORT[bz] || bz}<br>${cnt}&thinsp;/&thinsp;${tot}
+        background:white;border-radius:8px;padding:5px 10px;
+        font-family:'DM Mono',monospace,sans-serif;
+        color:${col};border:2.5px solid ${col};
+        box-shadow:0 2px 6px rgba(0,0,0,.22);
+        white-space:nowrap;text-align:center;line-height:1.5;
+        pointer-events:none">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.03em">${SHORT[bz] || bz}</div>
+        <div style="font-size:16px;font-weight:800">${cnt}&thinsp;/&thinsp;${tot}</div>
       </div>`,
-      iconAnchor: [40, 20]
+      iconAnchor: [46, 26]
     });
     L.marker([lat, lng], { icon: lbl, interactive: false }).addTo(labelGroup);
   }
