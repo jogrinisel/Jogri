@@ -139,70 +139,42 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 .hud-pct { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 4px; }
 
 /* GPS pill */
-#gps-pill {
-  position: absolute; top: 90px; right: 14px; z-index: 20;
-  display: flex; align-items: center; gap: 6px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 99px; padding: 7px 12px;
-  font-family: var(--mono); font-size: 11px; color: var(--white);
-  cursor: pointer; pointer-events: all; transition: border-color .2s;
+/* ── MAP BUTTONS – uniform 3×2 grid (3 left, 3 right) ── */
+.map-btn {
+  position: absolute; z-index: 20;
+  width: 110px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--white);
+  border-radius: 99px; padding: 8px 0;
+  font-family: var(--mono); font-size: 11px; text-align: center;
+  cursor: pointer; pointer-events: all;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
 }
-#gps-pill:hover { border-color: var(--green); }
-#gps-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.map-btn:active { transform: scale(.96); }
+
+/* Left column */
+#lb-toggle     { top: 90px;  left: 14px; }
+#myact-toggle  { top: 132px; left: 14px; }
+#session-action-btn { top: 174px; left: 14px; display: none; }
+
+/* Right column */
+#gps-pill      { top: 90px;  right: 14px; }
+#quick-log-btn { top: 132px; right: 14px; }
+#gpx-live-btn  { top: 174px; right: 14px; }
+
+/* GPS dot indicator inside gps-pill */
+#gps-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
 #gps-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); animation: glow 1.5s infinite; }
 #gps-dot.err { background: var(--red); }
 @keyframes glow { 50% { opacity: .3; } }
 
-#quick-log-btn {
-  position: absolute; top: 132px; right: 14px; z-index: 20;
-  background: var(--gold); border: none; color: var(--bg);
-  border-radius: 99px; padding: 7px 12px;
-  font-family: var(--mono); font-size: 11px; font-weight: 700;
-  cursor: pointer; pointer-events: all;
-}
-#quick-log-btn:active { transform: scale(.96); }
-#quick-log-btn:disabled { opacity: .5; cursor: wait; }
+/* State-specific overrides */
+#quick-log-btn { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 700; }
+#session-action-btn.idle-style  { background: var(--green); border-color: var(--green); color: var(--bg); font-weight: 700; }
+#session-action-btn.cancel-style { background: #e0182d;    border-color: #e0182d;    color: #fff;       font-weight: 700; }
 
-#gpx-live-btn {
-  position: absolute; top: 174px; right: 14px; z-index: 20;
-  background: var(--surface); border: 1px solid var(--border); color: var(--white);
-  border-radius: 99px; padding: 7px 12px;
-  font-family: var(--mono); font-size: 11px;
-  cursor: pointer; pointer-events: all;
-}
-#gpx-live-btn:active { transform: scale(.96); }
-
-/* Leaderboard toggle */
-#lb-toggle {
-  position: absolute; top: 90px; left: 14px; z-index: 20;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 99px; padding: 7px 12px;
-  font-family: var(--mono); font-size: 11px; color: var(--white);
-  cursor: pointer; pointer-events: all;
-}
-
-#myact-toggle {
-  position: absolute; top: 132px; left: 14px; z-index: 20;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 99px; padding: 7px 12px;
-  font-family: var(--mono); font-size: 11px; color: var(--white);
-  cursor: pointer; pointer-events: all;
-}
-
-#session-action-btn {
-  position: absolute; top: 174px; left: 14px; z-index: 21;
-  background: var(--green); border: none; color: var(--bg);
-  border-radius: 99px; padding: 7px 12px;
-  font-family: var(--mono); font-size: 11px; font-weight: 700;
-  cursor: pointer; pointer-events: all; white-space: nowrap;
-  display: none;
-}
-#session-action-btn.idle-style {
-  background: var(--green); color: var(--bg); border: none;
-}
-#session-action-btn.cancel-style {
-  background: #e0182d; color: #fff; border: none;
-}
+/* Dimming overlay: shown only while logged in but no session running yet */
+#map-dim-overlay {
   position: absolute; inset: 0; z-index: 15;
   background: rgba(14,26,20,.55);
   pointer-events: none; display: none;
@@ -460,12 +432,13 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     </div>
   </div>
 
-  <button id="lb-toggle" onclick="toggleLeaderboard()">🏆 Rangliste</button>
-  <button id="myact-toggle" onclick="showMyActivitiesFromMap()">📋 Meine Sessions</button>
-  <div id="gps-pill" onclick="toggleGPS()"><div id="gps-dot"></div><span id="gps-lbl">GPS starten</span></div>
-  <button id="quick-log-btn" onclick="quickLogPosition()">📍 Standort prüfen</button>
-  <button id="gpx-live-btn" onclick="startGpxUploadForActiveSession()">🗺️ GPX ergänzen</button>
+  <button id="lb-toggle" class="map-btn" onclick="toggleLeaderboard()">🏆 Rangliste</button>
+  <button id="myact-toggle" class="map-btn" onclick="showMyActivitiesFromMap()">📋 Sessions</button>
+  <div id="gps-pill" class="map-btn" onclick="toggleGPS()"><div id="gps-dot"></div><span id="gps-lbl">GPS starten</span></div>
+  <button id="quick-log-btn" class="map-btn" onclick="quickLogPosition()">📍 Prüfen</button>
+  <button id="gpx-live-btn" class="map-btn" onclick="startGpxUploadForActiveSession()">🗺️ GPX</button>
   <input type="file" id="gpx-file-input-live" accept=".gpx" style="display:none" onchange="onGpxFileSelectedLive(event)">
+  <button id="session-action-btn" class="map-btn" onclick="sessionActionClick()">▶ Starten</button>
 
   <div id="collect-toast"></div>
 
@@ -477,9 +450,6 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     </div>
     <div class="cur-badge new" id="cur-badge">Neu ✓</div>
   </div>
-
-  <!-- Session control button: starts / resumes / cancels depending on state -->
-  <button class="btn-primary" id="session-action-btn" onclick="sessionActionClick()">Session starten →</button>
 </div>
 
 <!-- Leaderboard overlay (global, independent of active screen) -->
@@ -802,7 +772,7 @@ function showIdleDashboard() {
   btn.style.display = "block";
   btn.classList.remove("cancel-style");
   btn.classList.add("idle-style");
-  btn.textContent = "▶ Session starten";
+  btn.textContent = "▶ Starten";
   btn.onclick = startNewChallenge;
 
   clearLocalState();
