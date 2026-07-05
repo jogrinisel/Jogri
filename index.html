@@ -1656,61 +1656,137 @@ function renderPlayerDetailMap(gemeindenList) {
 // Shows each of the 10 Verwaltungskreise coloured by how many communes
 // the player has collected there, from white (0) to green (max).
 function renderBezirkHeatmap(gemeindenList) {
-  // Count per bezirk
+  // Distinct colour per Verwaltungskreis
+  const BEZIRK_COLOR = {
+    "Bern-Mittelland":        "#4E79A7",
+    "Emmental":               "#F28E2B",
+    "Oberaargau":             "#E15759",
+    "Seeland":                "#76B7B2",
+    "Biel/Bienne":            "#59A14F",
+    "Jura bernois":           "#EDC948",
+    "Thun":                   "#B07AA1",
+    "Frutigen-Niedersimmental":"#FF9DA7",
+    "Obersimmental-Saanen":   "#9C755F",
+    "Interlaken-Oberhasli":   "#BAB0AC",
+  };
+
+  // Count collected per bezirk
   const bezirkCount = {};
   for (const gem of gemeindenList) {
     const bz = GEMEINDE_BEZIRK[gem] || "Unbekannt";
     bezirkCount[bz] = (bezirkCount[bz] || 0) + 1;
   }
 
-  // Max for colour scaling
-  const maxCount = Math.max(1, ...Object.values(bezirkCount));
-
-  // Total communes per bezirk (for percentage)
+  // Total communes per bezirk
   const bezirkTotal = {};
-  for (const [gem, bz] of Object.entries(GEMEINDE_BEZIRK)) {
+  for (const bz of Object.values(GEMEINDE_BEZIRK)) {
     bezirkTotal[bz] = (bezirkTotal[bz] || 0) + 1;
   }
 
   if (!pdMapInstance) {
-    pdMapInstance = L.map("pd-map", { zoomControl: true, attributionControl: false })
+    pdMapInstance = L.map("pd-map", { zoomControl: false, attributionControl: false })
       .setView([46.95, 7.45], 9);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", { maxZoom: 17 }).addTo(pdMapInstance);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 0.5 }).addTo(pdMapInstance);
   }
 
   if (pdLayer) { pdMapInstance.removeLayer(pdLayer); }
+  if (pdLabelLayer) { pdMapInstance.removeLayer(pdLabelLayer); pdLabelLayer = null; }
 
   pdLayer = L.geoJSON(BERN_GEOJSON, {
     style: f => {
       const gem  = f.properties?.name || String(f.id);
       const bz   = GEMEINDE_BEZIRK[gem] || "Unbekannt";
+      const col  = BEZIRK_COLOR[bz] || "#aaaaaa";
       const cnt  = bezirkCount[bz] || 0;
       const pct  = cnt / (bezirkTotal[bz] || 1);
-      // Interpolate white → green based on fill percentage
-      const g = Math.round(80 + pct * 140);  // 80–220
-      const r = Math.round(255 - pct * 200); // 255–55
-      const fillColor = cnt === 0 ? "#f5f5f5" : `rgb(${r},${g},80)`;
       return {
-        fillColor,
-        fillOpacity: cnt === 0 ? 0.1 : 0.55,
-        color: "#666666",
-        weight: 0.5,
-        opacity: 0.6
+        fillColor:   col,
+        fillOpacity: 0.15 + pct * 0.65, // fades from light (0) to solid (100%)
+        color:       col,
+        weight:      0,   // no commune borders
+        opacity:     0
       };
-    },
-    onEachFeature: (f, layer) => {
-      const gem = f.properties?.name || String(f.id);
-      const bz  = GEMEINDE_BEZIRK[gem] || "?";
-      const cnt = bezirkCount[bz] || 0;
-      const tot = bezirkTotal[bz] || "?";
-      layer.bindTooltip(`<b>${bz}</b><br>${cnt} / ${tot} Gemeinden`, { sticky: true, opacity: 0.9 });
     }
   }).addTo(pdMapInstance);
+
+  // Draw bezirk outlines as a separate layer by grouping communes and
+  // computing a merged boundary — we approximate this by styling border
+  // only when the neighbour is in a different bezirk.
+  // Simpler approach: redraw with a thick border of the same colour,
+  // which visually merges communes into bezirke.
+  L.geoJSON(BERN_GEOJSON, {
+    style: f => {
+      const gem = f.properties?.name || String(f.id);
+      const bz  = GEMEINDE_BEZIRK[gem] || "Unbekannt";
+      const col = BEZIRK_COLOR[bz] || "#aaaaaa";
+      return { fillColor: "transparent", fillOpacity: 0, color: col, weight: 3, opacity: 0.6 };
+    }
+  }).addTo(pdMapInstance);
+
+  // Add centroid labels per bezirk showing "X / Y"
+  // Compute approximate centroid per bezirk from all commune polygons
+  const bezirkCentroid = {};
+  const bezirkLatSum = {}, bezirkLngSum = {}, bezirkPtCount = {};
+  for (const f of BERN_GEOJSON.features) {
+    const gem = f.properties?.name || String(f.id);
+    const bz  = GEMEINDE_BEZIRK[gem] || "Unbekannt";
+    const coords = f.geometry.type === "Polygon"
+      ? f.geometry.coordinates[0]
+      : f.geometry.coordinates[0][0];
+    for (const [lng, lat] of coords) {
+      bezirkLatSum[bz]  = (bezirkLatSum[bz]  || 0) + lat;
+      bezirkLngSum[bz]  = (bezirkLngSum[bz]  || 0) + lng;
+      bezirkPtCount[bz] = (bezirkPtCount[bz] || 0) + 1;
+    }
+  }
+  for (const bz of Object.keys(bezirkLatSum)) {
+    bezirkCentroid[bz] = [
+      bezirkLatSum[bz]  / bezirkPtCount[bz],
+      bezirkLngSum[bz]  / bezirkPtCount[bz]
+    ];
+  }
+
+  // Short names for labels
+  const SHORT = {
+    "Bern-Mittelland":          "Bern-Mittelland",
+    "Emmental":                 "Emmental",
+    "Oberaargau":               "Oberaargau",
+    "Seeland":                  "Seeland",
+    "Biel/Bienne":              "Biel/Bienne",
+    "Jura bernois":             "Jura bernois",
+    "Thun":                     "Thun",
+    "Frutigen-Niedersimmental": "Frutigen-NS",
+    "Obersimmental-Saanen":     "Obersiml.-Saanen",
+    "Interlaken-Oberhasli":     "Interlaken-OH",
+  };
+
+  const labelGroup = L.layerGroup();
+  for (const [bz, [lat, lng]] of Object.entries(bezirkCentroid)) {
+    const cnt = bezirkCount[bz] || 0;
+    const tot = bezirkTotal[bz] || "?";
+    const col = BEZIRK_COLOR[bz] || "#333";
+    const lbl = L.divIcon({
+      className: "",
+      html: `<div style="
+        background:white;border-radius:6px;padding:3px 7px;
+        font-family:monospace;font-size:11px;font-weight:700;
+        color:${col};border:2px solid ${col};
+        box-shadow:0 1px 4px rgba(0,0,0,.25);
+        white-space:nowrap;text-align:center;line-height:1.4">
+        ${SHORT[bz] || bz}<br>${cnt}&thinsp;/&thinsp;${tot}
+      </div>`,
+      iconAnchor: [40, 20]
+    });
+    L.marker([lat, lng], { icon: lbl, interactive: false }).addTo(labelGroup);
+  }
+  labelGroup.addTo(pdMapInstance);
+  pdLabelLayer = labelGroup;
 
   setTimeout(() => pdMapInstance.invalidateSize(), 50);
 }
 let pdLayer = null;
+let pdLabelLayer = null;
 
 function closePlayerDetail() {
   document.getElementById("player-detail-panel").classList.remove("open");
