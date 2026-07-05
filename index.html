@@ -35,38 +35,39 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 /* ── HOME SCREEN ── */
 #screen-home {
   background: var(--bg);
-  align-items: center; justify-content: center;
-  padding: 32px 24px;
-  gap: 0;
+  align-items: center; justify-content: flex-start;
+  padding: 16px 24px 32px;
+  gap: 0; overflow-y: auto;
 }
 
 .home-eyebrow {
   font-family: var(--mono); font-size: 11px; letter-spacing: .2em;
-  text-transform: uppercase; color: var(--green); margin-bottom: 20px;
+  text-transform: uppercase; color: var(--green); margin-bottom: 10px;
+  margin-top: 8px;
 }
 
 .home-title {
-  font-size: clamp(48px, 12vw, 80px); font-weight: 700; line-height: .95;
-  text-align: center; color: var(--white); margin-bottom: 8px;
+  font-size: clamp(36px, 10vw, 64px); font-weight: 700; line-height: .95;
+  text-align: center; color: var(--white); margin-bottom: 6px;
   letter-spacing: -2px;
 }
 .home-title .accent { color: var(--green); }
 
 .home-sub {
-  font-size: 14px; color: var(--muted); text-align: center;
-  margin-bottom: 36px; line-height: 1.5; max-width: 280px;
+  font-size: 13px; color: var(--muted); text-align: center;
+  margin-bottom: 20px; line-height: 1.5; max-width: 280px;
 }
 
 .home-rule {
   width: 40px; height: 1px; background: var(--border);
-  margin: 0 auto 36px;
+  margin: 0 auto 20px;
 }
 
 .home-stats {
-  display: flex; gap: 32px; margin-bottom: 40px;
+  display: flex; gap: 24px; margin-bottom: 24px;
 }
 .stat { text-align: center; }
-.stat-num { font-family: var(--mono); font-size: 28px; font-weight: 500; color: var(--green); }
+.stat-num { font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--green); }
 .stat-lbl { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
 
 .input-wrap { width: 100%; max-width: 320px; margin-bottom: 14px; }
@@ -188,21 +189,25 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   cursor: pointer; pointer-events: all;
 }
 
-/* Dimming overlay: shown only while logged in but no session running yet */
-#map-dim-overlay {
+#session-action-btn {
+  position: absolute; top: 174px; left: 14px; z-index: 21;
+  background: var(--green); border: none; color: var(--bg);
+  border-radius: 99px; padding: 7px 12px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  cursor: pointer; pointer-events: all; white-space: nowrap;
+  display: none;
+}
+#session-action-btn.idle-style {
+  background: var(--green); color: var(--bg); border: none;
+}
+#session-action-btn.cancel-style {
+  background: #e0182d; color: #fff; border: none;
+}
   position: absolute; inset: 0; z-index: 15;
   background: rgba(14,26,20,.55);
   pointer-events: none; display: none;
 }
 #map-dim-overlay.show { display: block; }
-
-#session-action-btn {
-  position: absolute; bottom: 24px; left: 16px; right: 16px; z-index: 21;
-  max-width: 360px; margin: 0 auto;
-}
-#session-action-btn.cancel-style {
-  background: none; border: 1px solid #e0182d; color: #e0182d;
-}
 
 /* Collected toast */
 #collect-toast {
@@ -794,8 +799,10 @@ function showIdleDashboard() {
   document.getElementById("current-bar").classList.remove("up");
 
   const btn = document.getElementById("session-action-btn");
+  btn.style.display = "block";
   btn.classList.remove("cancel-style");
-  btn.textContent = "Session starten →";
+  btn.classList.add("idle-style");
+  btn.textContent = "▶ Session starten";
   btn.onclick = startNewChallenge;
 
   clearLocalState();
@@ -811,8 +818,10 @@ function showRunningDashboard() {
   document.getElementById("gpx-live-btn").style.display = "block";
 
   const btn = document.getElementById("session-action-btn");
+  btn.style.display = "block";
+  btn.classList.remove("idle-style");
   btn.classList.add("cancel-style");
-  btn.textContent = "Session abbrechen";
+  btn.textContent = "✕ Abbrechen";
   btn.onclick = confirmCancelSession;
 }
 
