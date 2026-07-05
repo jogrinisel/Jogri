@@ -1765,16 +1765,21 @@ function renderBezirkHeatmap(gemeindenList) {
     const lbl = L.divIcon({
       className: "",
       html: `<div style="
-        background:white;border-radius:8px;padding:5px 10px;
-        font-family:'DM Mono',monospace,sans-serif;
-        color:${col};border:2.5px solid ${col};
-        box-shadow:0 2px 6px rgba(0,0,0,.22);
-        white-space:nowrap;text-align:center;line-height:1.5;
-        pointer-events:none">
-        <div style="font-size:11px;font-weight:600;letter-spacing:.03em">${SHORT[bz] || bz}</div>
-        <div style="font-size:16px;font-weight:800">${cnt}&thinsp;/&thinsp;${tot}</div>
+        display:inline-block;
+        background:#111;
+        border-radius:8px;
+        padding:5px 12px;
+        border:2.5px solid ${col};
+        box-shadow:0 2px 8px rgba(0,0,0,.5);
+        white-space:nowrap;
+        text-align:center;
+        line-height:1.4;
+        pointer-events:none;
+        transform:translate(-50%,-50%)">
+        <div style="font-family:monospace;font-size:11px;font-weight:600;color:#fff;letter-spacing:.04em">${SHORT[bz] || bz}</div>
+        <div style="font-family:monospace;font-size:17px;font-weight:800;color:${col}">${cnt}&thinsp;/&thinsp;${tot}</div>
       </div>`,
-      iconAnchor: [46, 26]
+      iconAnchor: [0, 0]
     });
     L.marker([lat, lng], { icon: lbl, interactive: false }).addTo(labelGroup);
   }
