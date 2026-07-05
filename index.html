@@ -1634,6 +1634,7 @@ function renderPlayerDetailMap(gemeindenList) {
   }
 
   if (pdLayer) { pdMapInstance.removeLayer(pdLayer); }
+  if (pdLabelLayer) { pdMapInstance.removeLayer(pdLabelLayer); pdLabelLayer = null; }
 
   pdLayer = L.geoJSON(BERN_GEOJSON, {
     style: f => {
