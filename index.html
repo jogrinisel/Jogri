@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Bern 334 Challenge</title>
+<title>Les Communes de Berne</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -271,6 +271,15 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   margin-left: 6px;
 }
 
+.lb-test-badge {
+  font-family: var(--mono); font-size: 9px; color: var(--gold);
+  border: 1px solid var(--gold); border-radius: 99px; padding: 2px 7px;
+  margin-left: 6px; opacity: .85;
+}
+
+.lb-test-entry { opacity: .7; }
+.lb-test-entry .lb-pname { color: var(--gold); }
+
 .lb-empty { text-align: center; padding: 60px 24px; color: var(--muted); font-family: var(--mono); font-size: 13px; }
 
 /* clickable leaderboard rows */
@@ -385,13 +394,13 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 
 <!-- HOME -->
 <div id="screen-home" class="screen active">
-  <div class="home-eyebrow">🚴 Kanton Bern · 2 Wochen</div>
-  <div class="home-title">Bern<br><span class="accent">334</span></div>
-  <div class="home-sub">Sammle in 12 Stunden so viele Gemeinden wie möglich.</div>
+  <div class="home-eyebrow">🚴 Les Communes de Berne</div>
+  <div class="home-title">Les<br><span class="accent">Communes</span></div>
+  <div class="home-sub">Sammle in 10 Stunden so viele Gemeinden wie möglich.</div>
   <div class="home-rule"></div>
   <div class="home-stats">
     <div class="stat"><div class="stat-num">334</div><div class="stat-lbl">Gemeinden</div></div>
-    <div class="stat"><div class="stat-num">12h</div><div class="stat-lbl">Deine Zeit</div></div>
+    <div class="stat"><div class="stat-num">10h</div><div class="stat-lbl">Deine Zeit</div></div>
     <div class="stat"><div class="stat-num" id="home-players">–</div><div class="stat-lbl">Teilnehmer</div></div>
   </div>
   <div class="input-wrap">
@@ -505,6 +514,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 <div id="screen-admin" class="screen">
   <div class="admin-header">
     <div class="admin-title">🛠 Admin</div>
+    <button class="admin-delete-btn" onclick="adminResetTestData()" style="font-size:10px">🗑 Testdaten löschen</button>
     <button class="lb-close" onclick="closeAdminPanel()">✕</button>
   </div>
   <div class="admin-list" id="admin-list"><div class="lb-empty">Lade…</div></div>
@@ -526,9 +536,19 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 // ══════════════════════════════════════════════════════════════════
 const SUPABASE_URL      = "https://anfiitbptpeqkqcdscdc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_DvtivXIqw57lsYjR7F7CuQ_hbZlGtT-";
-const CHALLENGE_DURATION_H = 12;
-const MIN_GEMEINDEN_FOR_RANKING = 10;
-const CHALLENGE_END_DATE = "2025-08-15T23:59:59";    // Wann die Challenge endet
+const CHALLENGE_DURATION_H      = 10;                     // Dauer einer Session in Stunden
+const MIN_GEMEINDEN_FOR_RANKING = 10;                     // Mindestanzahl für Bestenliste
+const CHALLENGE_START           = new Date("2026-08-22T00:00:00"); // Offizieller Starttermin
+const CHALLENGE_END             = new Date("2026-09-05T23:59:59"); // Offizielles Ende
+
+// Automatisch: vor dem offiziellen Start ist alles Testphase
+function isTestPhase() {
+  return Date.now() < CHALLENGE_START.getTime();
+}
+
+// GPX-Upload-Regeln:
+// - Testphase (vor 22. Aug): beliebige GPX-Dateien, kein Zeitfenster
+// - Wettbewerbsphase: nur Punkte innerhalb des Session-Zeitfensters zählen
 
 // ══════════════════════════════════════════════════════════════════
 //  SUPABASE CLIENT
@@ -1364,6 +1384,11 @@ function annotateRows(rows) {
 }
 
 // Tab 1: best result per player, regardless of active/finished
+function isTestSession(row) {
+  if (!row.started_at) return false;
+  return new Date(row.started_at).getTime() < CHALLENGE_START.getTime();
+}
+
 function renderBestLeaderboard(rows) {
   const el = document.getElementById("lb-list");
   if (!rows.length) {
@@ -1373,10 +1398,12 @@ function renderBestLeaderboard(rows) {
 
   const annotated = annotateRows(rows);
 
-  // Group by player, keep best score session (any status).
-  // Exclude finished sessions below the minimum threshold (avoids test/junk entries).
-  // Active sessions are kept regardless, since they might still grow past the threshold.
-  const eligible = annotated.filter(r => r._reallyActive || r.count >= MIN_GEMEINDEN_FOR_RANKING);
+  // During test phase: show all sessions (including test ones).
+  // During competition: only show sessions started after official start,
+  // and exclude finished sessions below the minimum threshold.
+  const eligible = isTestPhase()
+    ? annotated.filter(r => r._reallyActive || r.count >= MIN_GEMEINDEN_FOR_RANKING)
+    : annotated.filter(r => !isTestSession(r) && (r._reallyActive || r.count >= MIN_GEMEINDEN_FOR_RANKING));
 
   if (!eligible.length) {
     el.innerHTML = "<div class='lb-empty'>Noch keine Einträge</div>";
@@ -1392,26 +1419,28 @@ function renderBestLeaderboard(rows) {
   const sorted = Object.values(best).sort((a, b) => b.count - a.count);
 
   el.innerHTML = sorted.map((r, i) => {
-    const rank   = i + 1;
+    const rank    = i + 1;
     const rankCls = rank <= 3 ? " top" : "";
     const rankStr = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
-    const statusLabel = r._reallyActive ? "läuft noch" : "abgeschlossen";
+    const isTest  = isTestSession(r);
+    const statusLabel = isTest ? "Test" : (r._reallyActive ? "läuft noch" : "abgeschlossen");
+    const testBadge = isTest ? "<span class='lb-test-badge'>Test</span>" : "";
 
-    return `<div class="lb-entry" onclick="openPlayerDetail('${esc(r.player_name)}', '${r.id}')">
+    return `<div class="lb-entry${isTest ? " lb-test-entry" : ""}" onclick="openPlayerDetail('${esc(r.player_name)}', '${r.id}')">
       <div class="lb-rank${rankCls}">${rankStr}</div>
       <div class="lb-info">
-        <div class="lb-pname">${esc(r.player_name)}</div>
+        <div class="lb-pname">${esc(r.player_name)}${testBadge}</div>
         <div class="lb-detail">${statusLabel}</div>
       </div>
       <div class="lb-score">
-        <div class="lb-num">${r.count}</div>
+        <div class="lb-num" style="${isTest ? "color:var(--gold)" : ""}">${r.count}</div>
         <div class="lb-num-lbl">Gem.</div>
       </div>
     </div>`;
   }).join("");
 }
 
-// Tab 2: sessions currently in progress (within 12h window)
+// Tab 2: sessions currently in progress (within 10h window)
 function renderLiveLeaderboard(rows) {
   const el = document.getElementById("lb-list");
   const annotated = annotateRows(rows);
@@ -1426,17 +1455,19 @@ function renderLiveLeaderboard(rows) {
   const sorted = live.sort((a, b) => b.count - a.count);
 
   el.innerHTML = sorted.map((r) => {
-    const hours = Math.floor(Math.min(r._elapsedMs, durationMs) / 3600000);
-    const mins  = Math.floor((Math.min(r._elapsedMs, durationMs) % 3600000) / 60000);
+    const hours  = Math.floor(Math.min(r._elapsedMs, durationMs) / 3600000);
+    const mins   = Math.floor((Math.min(r._elapsedMs, durationMs) % 3600000) / 60000);
+    const isTest = isTestSession(r);
+    const testBadge = isTest ? "<span class='lb-test-badge'>Test</span>" : "";
 
-    return `<div class="lb-entry" onclick="openPlayerDetail('${esc(r.player_name)}', '${r.id}')">
+    return `<div class="lb-entry${isTest ? " lb-test-entry" : ""}" onclick="openPlayerDetail('${esc(r.player_name)}', '${r.id}')">
       <div class="lb-rank"><span class="lb-active-badge">● live</span></div>
       <div class="lb-info">
-        <div class="lb-pname">${esc(r.player_name)}</div>
+        <div class="lb-pname">${esc(r.player_name)}${testBadge}</div>
         <div class="lb-detail">läuft seit ${hours}h ${mins}min</div>
       </div>
       <div class="lb-score">
-        <div class="lb-num">${r.count}</div>
+        <div class="lb-num" style="${isTest ? "color:var(--gold)" : ""}">${r.count}</div>
         <div class="lb-num-lbl">Gem.</div>
       </div>
     </div>`;
@@ -1674,9 +1705,7 @@ function closeMyActivities() {
 
 // ⚠️ TESTING ONLY — set back to false before going live with real challenges!
 // While true, GPX upload skips both fairness checks (active-session block
-// and time-window filter), so old/unrelated GPX files can be used to test
-// the import pipeline itself.
-const GPX_TESTING_MODE = true;
+// GPX-Upload behaviour is now date-driven via isTestPhase() — see constants above.
 
 async function loadMyActivities() {
   const el = document.getElementById("myact-list");
@@ -1705,7 +1734,7 @@ async function loadMyActivities() {
         day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit"
       }) : "–";
       const gpxNote = s.gpx_imported ? " · GPX bereits ergänzt" : "";
-      const blockUpload = reallyActive && !GPX_TESTING_MODE;
+      const blockUpload = reallyActive && !isTestPhase();
 
       return `<div class="admin-entry">
         <div class="admin-info" style="cursor:pointer" onclick="openSessionDetail('${s.id}', '${dateStr}')">
@@ -1714,7 +1743,7 @@ async function loadMyActivities() {
         </div>
         ${blockUpload
           ? `<div class="admin-detail">Erst nach Ende der Session möglich</div>`
-          : `<button class="admin-delete-btn admin-reset-btn" onclick="startGpxUpload('${s.id}')">GPX hinzufügen${GPX_TESTING_MODE ? " (Test)" : ""}</button>`
+          : `<button class="admin-delete-btn admin-reset-btn" onclick="startGpxUpload('${s.id}')">GPX hinzufügen${isTestPhase() ? " (Test)" : ""}</button>`
         }
       </div>`;
     }).join("");
@@ -1832,7 +1861,7 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
   if (!allPoints.length) { notify("Keine Punkte in der GPX-Datei gefunden."); return []; }
 
   let windowed;
-  if (GPX_TESTING_MODE) {
+  if (isTestPhase()) {
     // Testing: use every point regardless of timestamp/time-window.
     windowed = allPoints;
   } else {
@@ -1852,7 +1881,7 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
   }
 
   const thinned = thinTrackpoints(windowed);
-  const testNote = GPX_TESTING_MODE ? " (TEST-MODUS: Zeitfenster-Filter deaktiviert)" : "";
+  const testNote = isTestPhase() ? " (TEST-MODUS: Zeitfenster-Filter deaktiviert)" : "";
   if (!silent) alert(`Prüfe ${thinned.length} Punkte gegen Gemeindegrenzen${testNote} — das kann einen Moment dauern.`);
   else showToast(`🗺️ Prüfe ${thinned.length} GPX-Punkte…`);
 
@@ -1909,6 +1938,52 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
   }
 
   return newlyAdded;
+}
+
+async function adminResetTestData() {
+  const challengeStartStr = CHALLENGE_START.toLocaleString("de-CH", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+  if (!confirm(
+    `Alle Testdaten löschen?\n\n` +
+    `Das löscht alle Sessions und Spieler-Logins, die vor dem offiziellen Start (${challengeStartStr}) erstellt wurden.\n\n` +
+    `Diese Aktion kann nicht rückgängig gemacht werden!`
+  )) return;
+
+  try {
+    // Delete all sessions started before the official challenge start
+    const { error: sessErr } = await db
+      .from("sessions")
+      .delete()
+      .lt("started_at", CHALLENGE_START.toISOString());
+    if (sessErr) throw sessErr;
+
+    // Delete all players that have no sessions left after the purge
+    // (i.e., players who only had test sessions)
+    const { data: remaining } = await db
+      .from("sessions")
+      .select("player_name");
+    const activePlayers = new Set((remaining || []).map(r => r.player_name));
+
+    const { data: allPlayers } = await db
+      .from("players")
+      .select("player_name");
+
+    const toDelete = (allPlayers || [])
+      .map(p => p.player_name)
+      .filter(n => !activePlayers.has(n));
+
+    for (const name of toDelete) {
+      await db.from("players").delete().eq("player_name", name);
+    }
+
+    alert(`Testdaten gelöscht.\n${toDelete.length} Spieler-Account(s) und alle Test-Sessions entfernt.`);
+    loadAdminList();
+  } catch(e) {
+    console.error("adminResetTestData:", e);
+    alert("Fehler beim Löschen: " + e.message);
+  }
 }
 
 async function loadAdminList() {
