@@ -1071,7 +1071,7 @@ function quickLogPosition() {
         + "&geometry=" + E + "," + N
         + "&imageDisplay=100,100,100"
         + "&mapExtent=" + (E-50) + "," + (N-50) + "," + (E+50) + "," + (N+50)
-        + "&tolerance=5"
+        + "&tolerance=20"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
         + "&timeInstant=2025"
         + "&sr=2056&returnGeometry=false&lang=de";
@@ -1220,7 +1220,7 @@ async function lookupGemeinde(lat, lng) {
       + "&geometry=" + E + "," + N
       + "&imageDisplay=100,100,100"
       + "&mapExtent=" + (E-50) + "," + (N-50) + "," + (E+50) + "," + (N+50)
-      + "&tolerance=5"
+      + "&tolerance=20"
       + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
       + "&timeInstant=2025"
       + "&sr=2056&returnGeometry=false&lang=de";
@@ -2036,6 +2036,7 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
 
   const existing = new Set(session.gemeinden || []);
   const found = new Set();
+  let errors = 0;
 
   for (const p of thinned) {
     try {
@@ -2045,22 +2046,43 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
         + "&geometry=" + E + "," + N
         + "&imageDisplay=100,100,100"
         + "&mapExtent=" + (E-50) + "," + (N-50) + "," + (E+50) + "," + (N+50)
-        + "&tolerance=5"
+        + "&tolerance=20"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
         + "&timeInstant=2025"
         + "&sr=2056&returnGeometry=false&lang=de";
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.results && data.results.length > 0) {
+
+      // Retry once on failure (rate limiting)
+      let data = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const res = await fetch(url);
+        if (res.ok) {
+          data = await res.json();
+          break;
+        } else if (res.status === 429 || res.status === 403) {
+          // Rate limited — wait and retry
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          break;
+        }
+      }
+
+      if (data && data.results && data.results.length > 0) {
         const attrs = data.results[0].attributes || data.results[0].properties || {};
         const name = attrs.gemname || attrs.name;
         const kanton = attrs.kanton || "";
         if (name && kanton === "BE") found.add(name);
       }
+
+      // Small delay between requests to avoid rate limiting
+      await new Promise(r => setTimeout(r, 80));
+
     } catch(e) {
+      errors++;
       console.warn("GPX point lookup failed:", e);
     }
   }
+
+  if (errors > 0) console.warn(`GPX upload: ${errors}/${thinned.length} points failed`);
 
   const merged = new Set([...existing, ...found]);
   const newlyAdded = [...found].filter(n => !existing.has(n));
