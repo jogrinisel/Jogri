@@ -1915,7 +1915,14 @@ function onGpxFileSelected(event) {
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
-      await processGpxUpload(gpxTargetSessionId, e.target.result);
+      const result = await processGpxUpload(gpxTargetSessionId, e.target.result);
+      if (result && result.debugPoints) {
+        // Fetch updated session gemeinden for the map
+        const { data: sess } = await db.from("sessions")
+          .select("gemeinden").eq("id", gpxTargetSessionId).maybeSingle();
+        const sessionGemeinden = sess?.gemeinden || [];
+        showGpxResultOnMap(result.allPoints, result.debugPoints, sessionGemeinden);
+      }
     } catch(err) {
       console.error("GPX processing failed:", err);
       alert("GPX-Datei konnte nicht verarbeitet werden.");
@@ -1941,15 +1948,20 @@ function onGpxFileSelectedLive(event) {
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
-      const addedNames = await processGpxUpload(sessionId, e.target.result, { silent: true });
-      if (addedNames && addedNames.length) {
-        addedNames.forEach(n => collected.add(n));
+      const result = await processGpxUpload(sessionId, e.target.result, { silent: true });
+      const newlyAdded = result?.newlyAdded || [];
+      if (newlyAdded.length) {
+        newlyAdded.forEach(n => collected.add(n));
         updateHUD();
         refreshMapStyle();
         persistLocalState();
-        showToast(`🗺️ ${addedNames.length} Gemeinde(n) per GPX ergänzt`);
+        showToast(`🗺️ ${newlyAdded.length} Gemeinde(n) per GPX ergänzt`);
       } else {
         showToast("Keine neuen Gemeinden im GPX gefunden");
+      }
+      // Show debug map after live upload too
+      if (result?.debugPoints?.length) {
+        showGpxResultOnMap(result.allPoints, result.debugPoints, Array.from(collected));
       }
     } catch(err) {
       console.error("GPX processing failed:", err);
@@ -2037,6 +2049,7 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
   const existing = new Set(session.gemeinden || []);
   const found = new Set();
   let errors = 0;
+  const debugPoints = []; // {lat, lon, commune, kanton}
 
   for (const p of thinned) {
     try {
@@ -2071,6 +2084,9 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
         const name = attrs.gemname || attrs.name;
         const kanton = attrs.kanton || "";
         if (name && kanton === "BE") found.add(name);
+        debugPoints.push({ lat: p.lat, lon: p.lon, commune: name || null, kanton });
+      } else {
+        debugPoints.push({ lat: p.lat, lon: p.lon, commune: null, kanton: null });
       }
 
       // Small delay between requests to avoid rate limiting
@@ -2108,7 +2124,83 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
     loadMyActivities();
   }
 
-  return newlyAdded;
+  // Return full debug info for map visualization
+  return { newlyAdded, debugPoints, allPoints };
+}
+
+// Visualise GPX result on the session detail map:
+// - full track as a thin grey line
+// - each checked point coloured by result:
+//   green = new commune found, yellow = already had it, grey = no match
+function showGpxResultOnMap(allPoints, debugPoints, sessionGemeinden) {
+  // Ensure the player-detail panel is open
+  document.getElementById("player-detail-panel").classList.add("open");
+  pdOpen = true;
+  document.getElementById("pd-title").textContent = "GPX-Resultat";
+  document.getElementById("pd-count").textContent = sessionGemeinden.length;
+
+  if (!pdMapInstance) {
+    pdMapInstance = L.map("pd-map", { zoomControl: true, attributionControl: false })
+      .setView([46.95, 7.45], 11);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", { maxZoom: 17 }).addTo(pdMapInstance);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 0.5 }).addTo(pdMapInstance);
+  }
+
+  if (pdLayer) { pdMapInstance.removeLayer(pdLayer); pdLayer = null; }
+  if (pdLabelLayer) { pdMapInstance.removeLayer(pdLabelLayer); pdLabelLayer = null; }
+
+  const gemSet = new Set(sessionGemeinden);
+
+  // Draw commune boundaries (faint background)
+  pdLayer = L.geoJSON(BERN_GEOJSON, {
+    style: f => {
+      const name = f.properties?.name || String(f.id);
+      return {
+        fillColor: gemSet.has(name) ? "#3ddc84" : "#ffffff",
+        fillOpacity: gemSet.has(name) ? 0.3 : 0.03,
+        color: "#e0182d", weight: 0.8, opacity: 0.4
+      };
+    }
+  }).addTo(pdMapInstance);
+
+  // Draw full GPX track as thin grey line
+  const trackCoords = allPoints.map(p => [p.lat, p.lon]);
+  const trackLayer = L.polyline(trackCoords, {
+    color: "#888888", weight: 2, opacity: 0.7
+  }).addTo(pdMapInstance);
+
+  // Draw checked points with colour by result
+  const pointsGroup = L.layerGroup();
+  for (const dp of debugPoints) {
+    let color, label;
+    if (dp.commune && !gemSet.has(dp.commune)) {
+      // Newly added this upload
+      color = "#3ddc84"; label = `✓ Neu: ${dp.commune}`;
+    } else if (dp.commune) {
+      // Already in session
+      color = "#f5c843"; label = `✓ Bereits: ${dp.commune}`;
+    } else {
+      // No match
+      color = "#666666"; label = "Kein Treffer";
+    }
+
+    L.circleMarker([dp.lat, dp.lon], {
+      radius: 5,
+      fillColor: color,
+      fillOpacity: 0.9,
+      color: "#ffffff",
+      weight: 1.5
+    }).bindTooltip(label, { sticky: true }).addTo(pointsGroup);
+  }
+  pointsGroup.addTo(pdMapInstance);
+  pdLabelLayer = pointsGroup;
+
+  // Fit map to track bounds
+  if (trackCoords.length > 0) {
+    pdMapInstance.fitBounds(L.polyline(trackCoords).getBounds(), { padding: [20, 20] });
+  }
+
+  setTimeout(() => pdMapInstance.invalidateSize(), 50);
 }
 
 async function adminResetTestData() {
