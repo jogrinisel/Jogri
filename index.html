@@ -1086,21 +1086,31 @@ function quickLogPosition() {
         return;
       }
 
-      const attrs   = data.results[0].attributes || data.results[0].properties || {};
-      const name    = attrs.gemname || attrs.name || attrs.label || "Unbekannt";
-      const kanton  = attrs.kanton || "";
+      // Collect all BE communes within tolerance radius
+      const beResults = data.results
+        .map(r => r.attributes || r.properties || {})
+        .filter(a => (a.kanton || "") === "BE" && (a.gemname || a.name));
+      
+      if (beResults.length === 0) {
+        status.textContent = "Standort gefunden";
+        gemEl.textContent  = "Keine Gemeinde erkannt";
+        subEl.textContent  = "Bist du innerhalb der Schweiz?";
+        return;
+      }
 
+      const newOnes = beResults.filter(a => !collected.has(a.gemname || a.name));
+      const name = (beResults[0].gemname || beResults[0].name);
       status.textContent = "Dein aktueller Standort:";
-      gemEl.textContent  = name;
+      gemEl.textContent  = beResults.map(a => a.gemname || a.name).join(", ");
 
-      if (kanton !== "BE") {
-        subEl.textContent = "Nicht im Kanton Bern – zählt nicht.";
-      } else if (collected.has(name)) {
+      if (newOnes.length === 0) {
         subEl.textContent = "Bereits gesammelt ✓";
       } else {
-        subEl.textContent = "Noch nicht gesammelt";
+        subEl.textContent = newOnes.length > 1
+          ? `${newOnes.length} neue Gemeinden in Reichweite`
+          : "Noch nicht gesammelt";
         confirmBtn.style.display = "block";
-        quickLogPending = { name, kanton, lat, lng };
+        quickLogPending = { names: newOnes.map(a => a.gemname || a.name), lat, lng };
       }
     } catch(e) {
       console.error("quickLogPosition lookup:", e);
@@ -1116,7 +1126,8 @@ function quickLogPosition() {
 
 function confirmQuickLog() {
   if (!quickLogPending) return;
-  collectGemeinde(quickLogPending.name);
+  const names = quickLogPending.names || (quickLogPending.name ? [quickLogPending.name] : []);
+  names.forEach(n => collectGemeinde(n));
   closeQuickLog();
 }
 
@@ -1233,14 +1244,16 @@ async function lookupGemeinde(lat, lng) {
       return;
     }
 
-    const attrs = data.results[0].attributes || data.results[0].properties || {};
-    const name   = attrs.gemname || attrs.name || attrs.label || "Unbekannt";
-    const kanton = attrs.kanton || "";
-    setCurrentBar(name, kanton);
-
-    // Only count Bern municipalities
-    if (kanton === "BE" && !collected.has(name)) {
-      collectGemeinde(name);
+    // Process ALL results — tolerance=50 can return multiple communes at borders
+    for (const result of data.results) {
+      const attrs = result.attributes || result.properties || {};
+      const name  = attrs.gemname || attrs.name || attrs.label;
+      const kanton = attrs.kanton || "";
+      if (!name) continue;
+      setCurrentBar(name, kanton);
+      if (kanton === "BE" && !collected.has(name)) {
+        collectGemeinde(name);
+      }
     }
 
   } catch(e) {
@@ -1623,8 +1636,12 @@ async function openSessionDetail(sessionIdToShow, label) {
     const gems = data.gemeinden || [];
     document.getElementById("pd-count").textContent = data.count || gems.length;
 
-    if (data.gpx_track && data.gpx_track.points && data.gpx_track.points.length) {
-      // Restore saved GPX visualisation
+    // Check in-memory cache first (from this session's upload)
+    const cached = gpxResultCache[sessionIdToShow];
+    if (cached) {
+      showGpxResultOnMap(cached.allPoints, cached.debugPoints, cached.gemeinden);
+    } else if (data.gpx_track && data.gpx_track.points && data.gpx_track.points.length) {
+      // Restore saved GPX visualisation from DB
       const allPts   = (data.gpx_track.track  || []).map(([lat,lon]) => ({lat, lon}));
       const debugPts = (data.gpx_track.points || []).map(p => ({lat: p.lat, lon: p.lon, commune: p.c}));
       showGpxResultOnMap(allPts, debugPts, gems);
@@ -1647,8 +1664,9 @@ function renderPlayerDetailMap(gemeindenList) {
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 0.6 }).addTo(pdMapInstance);
   }
 
-  if (pdLayer) { pdMapInstance.removeLayer(pdLayer); }
+  if (pdLayer)      { pdMapInstance.removeLayer(pdLayer);      pdLayer      = null; }
   if (pdLabelLayer) { pdMapInstance.removeLayer(pdLabelLayer); pdLabelLayer = null; }
+  if (pdTrackLayer) { pdMapInstance.removeLayer(pdTrackLayer); pdTrackLayer = null; }
 
   pdLayer = L.geoJSON(BERN_GEOJSON, {
     style: f => {
@@ -1706,8 +1724,9 @@ function renderBezirkHeatmap(gemeindenList) {
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 0.5 }).addTo(pdMapInstance);
   }
 
-  if (pdLayer) { pdMapInstance.removeLayer(pdLayer); }
+  if (pdLayer)      { pdMapInstance.removeLayer(pdLayer);      pdLayer      = null; }
   if (pdLabelLayer) { pdMapInstance.removeLayer(pdLabelLayer); pdLabelLayer = null; }
+  if (pdTrackLayer) { pdMapInstance.removeLayer(pdTrackLayer); pdTrackLayer = null; }
 
   pdLayer = L.geoJSON(BERN_GEOJSON, {
     style: f => {
@@ -1806,6 +1825,9 @@ function renderBezirkHeatmap(gemeindenList) {
 }
 let pdLayer = null;
 let pdLabelLayer = null;
+let pdTrackLayer = null;
+// Cache last GPX result per session so closing/reopening panel restores it
+const gpxResultCache = {}; // sessionId → {allPoints, debugPoints, gemeinden}
 
 function closePlayerDetail() {
   document.getElementById("player-detail-panel").classList.remove("open");
@@ -1936,6 +1958,12 @@ function onGpxFileSelected(event) {
         const { data: sess } = await db.from("sessions")
           .select("gemeinden").eq("id", gpxTargetSessionId).maybeSingle();
         const sessionGemeinden = sess?.gemeinden || [];
+        // Cache for re-opening
+        gpxResultCache[gpxTargetSessionId] = {
+          allPoints: result.allPoints,
+          debugPoints: result.debugPoints,
+          gemeinden: sessionGemeinden
+        };
         showGpxResultOnMap(result.allPoints, result.debugPoints, sessionGemeinden);
       }
     } catch(err) {
@@ -2001,7 +2029,7 @@ function parseGpxTrackpoints(gpxText) {
 
 // Reduce point count for big tracks: only check points spaced apart in time,
 // since we only need to detect which gemeinde boundaries were crossed.
-function thinTrackpoints(points, minGapMs = 30000) {
+function thinTrackpoints(points, minGapMs = 10000) {
   if (!points.length) return points;
   const out = [points[0]];
   let lastTime = points[0].time;
@@ -2095,11 +2123,18 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
       }
 
       if (data && data.results && data.results.length > 0) {
-        const attrs = data.results[0].attributes || data.results[0].properties || {};
-        const name = attrs.gemname || attrs.name;
-        const kanton = attrs.kanton || "";
-        if (name && kanton === "BE") found.add(name);
-        debugPoints.push({ lat: p.lat, lon: p.lon, commune: name || null, kanton });
+        // Process all results – with tolerance=50 multiple communes can be returned
+        let firstFound = null;
+        for (const result of data.results) {
+          const attrs = result.attributes || result.properties || {};
+          const name = attrs.gemname || attrs.name;
+          const kanton = attrs.kanton || "";
+          if (name && kanton === "BE") {
+            found.add(name);
+            if (!firstFound) firstFound = name;
+          }
+        }
+        debugPoints.push({ lat: p.lat, lon: p.lon, commune: firstFound, kanton: firstFound ? "BE" : null });
       } else {
         debugPoints.push({ lat: p.lat, lon: p.lon, commune: null, kanton: null });
       }
@@ -2156,7 +2191,6 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
 // - each checked point coloured by result:
 //   green = new commune found, yellow = already had it, grey = no match
 function showGpxResultOnMap(allPoints, debugPoints, sessionGemeinden) {
-  // Ensure the player-detail panel is open
   document.getElementById("player-detail-panel").classList.add("open");
   pdOpen = true;
   document.getElementById("pd-title").textContent = "GPX-Resultat";
@@ -2169,61 +2203,55 @@ function showGpxResultOnMap(allPoints, debugPoints, sessionGemeinden) {
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 0.5 }).addTo(pdMapInstance);
   }
 
-  if (pdLayer) { pdMapInstance.removeLayer(pdLayer); pdLayer = null; }
+  if (pdLayer)      { pdMapInstance.removeLayer(pdLayer);      pdLayer      = null; }
   if (pdLabelLayer) { pdMapInstance.removeLayer(pdLabelLayer); pdLabelLayer = null; }
+  if (pdTrackLayer) { pdMapInstance.removeLayer(pdTrackLayer); pdTrackLayer = null; }
 
   const gemSet = new Set(sessionGemeinden);
 
-  // Draw commune boundaries (faint background)
+  // Commune fill background
   pdLayer = L.geoJSON(BERN_GEOJSON, {
     style: f => {
       const name = f.properties?.name || String(f.id);
       return {
-        fillColor: gemSet.has(name) ? "#3ddc84" : "#ffffff",
+        fillColor:   gemSet.has(name) ? "#3ddc84" : "#ffffff",
         fillOpacity: gemSet.has(name) ? 0.3 : 0.03,
         color: "#e0182d", weight: 0.8, opacity: 0.4
       };
     }
   }).addTo(pdMapInstance);
 
-  // Draw full GPX track as thin grey line
+  // GPX track line
   const trackCoords = allPoints.map(p => [p.lat, p.lon]);
-  const trackLayer = L.polyline(trackCoords, {
-    color: "#888888", weight: 2, opacity: 0.7
-  }).addTo(pdMapInstance);
+  pdTrackLayer = L.polyline(trackCoords, { color: "#555555", weight: 2, opacity: 0.7 })
+    .addTo(pdMapInstance);
 
-  // Draw checked points with colour by result
+  // Checked points
   const pointsGroup = L.layerGroup();
   for (const dp of debugPoints) {
     let color, label;
     if (dp.commune && !gemSet.has(dp.commune)) {
-      // Newly added this upload
       color = "#3ddc84"; label = `✓ Neu: ${dp.commune}`;
     } else if (dp.commune) {
-      // Already in session
       color = "#f5c843"; label = `✓ Bereits: ${dp.commune}`;
     } else {
-      // No match
-      color = "#666666"; label = "Kein Treffer";
+      color = "#888888"; label = "Kein Treffer";
     }
-
     L.circleMarker([dp.lat, dp.lon], {
-      radius: 5,
-      fillColor: color,
-      fillOpacity: 0.9,
-      color: "#ffffff",
-      weight: 1.5
+      radius: 5, fillColor: color, fillOpacity: 0.9,
+      color: "#ffffff", weight: 1.5
     }).bindTooltip(label, { sticky: true }).addTo(pointsGroup);
   }
   pointsGroup.addTo(pdMapInstance);
   pdLabelLayer = pointsGroup;
 
-  // Fit map to track bounds
-  if (trackCoords.length > 0) {
-    pdMapInstance.fitBounds(L.polyline(trackCoords).getBounds(), { padding: [20, 20] });
-  }
-
-  setTimeout(() => { pdMapInstance.invalidateSize(); if (pdLayer) pdMapInstance.fitBounds(pdLayer.getBounds(), {padding:[20,20]}); }, 150);
+  // Fit to track bounds
+  setTimeout(() => {
+    pdMapInstance.invalidateSize();
+    if (trackCoords.length > 0) {
+      pdMapInstance.fitBounds(L.polyline(trackCoords).getBounds(), { padding: [20, 20] });
+    }
+  }, 150);
 }
 
 async function adminResetTestData() {
