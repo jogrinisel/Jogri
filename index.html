@@ -1071,7 +1071,7 @@ function quickLogPosition() {
         + "&geometry=" + E + "," + N
         + "&imageDisplay=100,100,100"
         + "&mapExtent=" + (E-50) + "," + (N-50) + "," + (E+50) + "," + (N+50)
-        + "&tolerance=20"
+        + "&tolerance=50"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
         + "&timeInstant=2026"
         + "&sr=2056&returnGeometry=false&lang=de";
@@ -1220,7 +1220,7 @@ async function lookupGemeinde(lat, lng) {
       + "&geometry=" + E + "," + N
       + "&imageDisplay=100,100,100"
       + "&mapExtent=" + (E-50) + "," + (N-50) + "," + (E+50) + "," + (N+50)
-      + "&tolerance=20"
+      + "&tolerance=50"
       + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
       + "&timeInstant=2026"
       + "&sr=2056&returnGeometry=false&lang=de";
@@ -1606,13 +1606,12 @@ async function openSessionDetail(sessionIdToShow, label) {
   document.getElementById("player-detail-panel").classList.add("open");
   pdOpen = true;
 
-  // Wait for panel to be visible before initializing map
   await new Promise(r => setTimeout(r, 80));
 
   try {
     const { data, error } = await db
       .from("sessions")
-      .select("gemeinden, count")
+      .select("gemeinden, count, gpx_track")
       .eq("id", sessionIdToShow)
       .maybeSingle();
 
@@ -1624,7 +1623,14 @@ async function openSessionDetail(sessionIdToShow, label) {
     const gems = data.gemeinden || [];
     document.getElementById("pd-count").textContent = data.count || gems.length;
 
-    renderPlayerDetailMap(gems);
+    if (data.gpx_track && data.gpx_track.points && data.gpx_track.points.length) {
+      // Restore saved GPX visualisation
+      const allPts   = (data.gpx_track.track  || []).map(([lat,lon]) => ({lat, lon}));
+      const debugPts = (data.gpx_track.points || []).map(p => ({lat: p.lat, lon: p.lon, commune: p.c}));
+      showGpxResultOnMap(allPts, debugPts, gems);
+    } else {
+      renderPlayerDetailMap(gems);
+    }
   } catch(e) {
     console.error("openSessionDetail:", e);
   }
@@ -2068,7 +2074,7 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
         + "&geometry=" + E + "," + N
         + "&imageDisplay=100,100,100"
         + "&mapExtent=" + (E-50) + "," + (N-50) + "," + (E+50) + "," + (N+50)
-        + "&tolerance=20"
+        + "&tolerance=50"
         + "&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
         + "&timeInstant=2026"
         + "&sr=2056&returnGeometry=false&lang=de";
@@ -2115,7 +2121,15 @@ async function processGpxUpload(sessionIdToUpdate, gpxText, options = {}) {
   const { error: updateErr } = await db.from("sessions").update({
     gemeinden: Array.from(merged),
     count: merged.size,
-    gpx_imported: true
+    gpx_imported: true,
+    gpx_track: {
+      track: allPoints.map(p => [parseFloat(p.lat.toFixed(6)), parseFloat(p.lon.toFixed(6))]),
+      points: debugPoints.map(p => ({
+        lat: parseFloat(p.lat.toFixed(6)),
+        lon: parseFloat(p.lon.toFixed(6)),
+        c: p.commune || null
+      }))
+    }
   }).eq("id", sessionIdToUpdate);
 
   if (updateErr) {
