@@ -1558,8 +1558,12 @@ async function openPlayerDetail(playerNameClicked, sessionId) {
   const isOwnSession = (playerNameClicked === playerName);
 
   document.getElementById("pd-title").textContent = playerNameClicked;
+  document.getElementById("pd-count").textContent = "…";
   document.getElementById("player-detail-panel").classList.add("open");
   pdOpen = true;
+
+  // Wait for panel to be visible before initializing/resizing map
+  await new Promise(r => setTimeout(r, 80));
 
   try {
     let query = db.from("sessions").select("gemeinden, count");
@@ -1598,8 +1602,12 @@ async function openSessionDetail(sessionIdToShow, label) {
   if (!db) { showToast("Keine Datenbankverbindung"); return; }
 
   document.getElementById("pd-title").textContent = label;
+  document.getElementById("pd-count").textContent = "…";
   document.getElementById("player-detail-panel").classList.add("open");
   pdOpen = true;
+
+  // Wait for panel to be visible before initializing map
+  await new Promise(r => setTimeout(r, 80));
 
   try {
     const { data, error } = await db
@@ -1650,10 +1658,11 @@ function renderPlayerDetailMap(gemeindenList) {
     }
   }).addTo(pdMapInstance);
 
-  setTimeout(() => pdMapInstance.invalidateSize(), 50);
+  setTimeout(() => {
+    pdMapInstance.invalidateSize();
+    if (pdLayer) pdMapInstance.fitBounds(pdLayer.getBounds(), { padding: [20, 20] });
+  }, 150);
 }
-
-// Bezirk heatmap — for foreign players, hides exact commune strategy.
 // Shows each of the 10 Verwaltungskreise coloured by how many communes
 // the player has collected there, from white (0) to green (max).
 function renderBezirkHeatmap(gemeindenList) {
@@ -1787,7 +1796,7 @@ function renderBezirkHeatmap(gemeindenList) {
   labelGroup.addTo(pdMapInstance);
   pdLabelLayer = labelGroup;
 
-  setTimeout(() => pdMapInstance.invalidateSize(), 50);
+  setTimeout(() => { pdMapInstance.invalidateSize(); if (pdLayer) pdMapInstance.fitBounds(pdLayer.getBounds(), {padding:[20,20]}); }, 150);
 }
 let pdLayer = null;
 let pdLabelLayer = null;
@@ -2200,7 +2209,7 @@ function showGpxResultOnMap(allPoints, debugPoints, sessionGemeinden) {
     pdMapInstance.fitBounds(L.polyline(trackCoords).getBounds(), { padding: [20, 20] });
   }
 
-  setTimeout(() => pdMapInstance.invalidateSize(), 50);
+  setTimeout(() => { pdMapInstance.invalidateSize(); if (pdLayer) pdMapInstance.fitBounds(pdLayer.getBounds(), {padding:[20,20]}); }, 150);
 }
 
 async function adminResetTestData() {
