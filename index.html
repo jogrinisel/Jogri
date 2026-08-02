@@ -122,7 +122,16 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   letter-spacing: .1em; text-transform: uppercase;
   margin-bottom: 14px; margin-top: -4px;
 }
-#email-wrap { display: none; }
+#email-wrap    { display: none; }
+#reset-wrap    { display: none; }
+#password-wrap { display: block; }
+.forgot-link {
+  background: none; border: none; color: var(--muted);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .05em;
+  cursor: pointer; text-decoration: underline; margin-top: -6px;
+  margin-bottom: 14px; align-self: flex-start; padding: 0;
+}
+.forgot-link:hover { color: var(--green); }
 
 
 .home-leaderboard-btn {
@@ -432,17 +441,18 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <div class="stat"><div class="stat-num">10h</div><div class="stat-lbl">Deine Zeit</div></div>
     <div class="stat"><div class="stat-num" id="home-players">–</div><div class="stat-lbl">Teilnehmer</div></div>
   </div>
-  <!-- Auth-Tabs: Anmelden / Registrieren -->
+  <!-- Auth-Tabs: Anmelden / Registrieren / Passwort vergessen -->
   <div class="auth-tabs">
     <button class="auth-tab active" id="tab-login"    onclick="switchAuthTab('login')">Anmelden</button>
     <button class="auth-tab"        id="tab-register" onclick="switchAuthTab('register')">Registrieren</button>
+    <button class="auth-tab"        id="tab-reset"    onclick="switchAuthTab('reset')">🔑</button>
   </div>
 
-  <div class="input-wrap">
+  <div class="input-wrap" id="name-wrap-first">
     <label>Vorname</label>
     <input type="text" id="firstname-input" placeholder="z.B. Anna" maxlength="20" autocomplete="given-name">
   </div>
-  <div class="input-wrap">
+  <div class="input-wrap" id="name-wrap-last">
     <label>Nachname</label>
     <input type="text" id="lastname-input" placeholder="z.B. Müller" maxlength="20" autocomplete="family-name">
   </div>
@@ -450,7 +460,11 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <label>E-Mail</label>
     <input type="email" id="email-input" placeholder="anna@beispiel.ch" maxlength="120" autocomplete="email">
   </div>
-  <div class="input-wrap">
+  <div class="input-wrap" id="reset-wrap">
+    <label>E-Mail (für Passwort-Reset)</label>
+    <input type="email" id="reset-email-input" placeholder="anna@beispiel.ch" maxlength="120" autocomplete="email">
+  </div>
+  <div class="input-wrap" id="password-wrap">
     <label id="pin-label">Passwort</label>
     <input type="password" id="pin-input" placeholder="Mindestens 6 Zeichen" maxlength="64" autocomplete="current-password">
   </div>
@@ -706,13 +720,89 @@ let authMode = "login"; // "login" | "register"
 
 function switchAuthTab(mode) {
   authMode = mode;
-  document.getElementById("tab-login").classList.toggle("active", mode === "login");
-  document.getElementById("tab-register").classList.toggle("active", mode === "register");
-  document.getElementById("email-wrap").style.display = mode === "register" ? "block" : "none";
-  document.getElementById("pin-input").setAttribute("autocomplete", mode === "register" ? "new-password" : "current-password");
-  document.getElementById("pin-input").placeholder = mode === "register" ? "Mindestens 6 Zeichen" : "Dein Passwort";
-  document.getElementById("start-btn").textContent = mode === "register" ? "Registrieren →" : "Anmelden →";
+  const isLogin    = mode === "login";
+  const isRegister = mode === "register";
+  const isReset    = mode === "reset";
+
+  document.getElementById("tab-login")   .classList.toggle("active", isLogin);
+  document.getElementById("tab-register").classList.toggle("active", isRegister);
+  document.getElementById("tab-reset")   .classList.toggle("active", isReset);
+
+  // Felder ein-/ausblenden
+  document.getElementById("email-wrap")   .style.display = isRegister ? "block" : "none";
+  document.getElementById("reset-wrap")   .style.display = isReset    ? "block" : "none";
+  document.getElementById("password-wrap").style.display = isReset    ? "none"  : "block";
+  document.getElementById("name-wrap-first").style.display = isReset  ? "block" : "block"; // immer sichtbar
+  document.getElementById("name-wrap-last") .style.display = isReset  ? "block" : "block"; // immer sichtbar
+
+  if (!isReset) {
+    document.getElementById("pin-input").setAttribute("autocomplete", isRegister ? "new-password" : "current-password");
+    document.getElementById("pin-input").placeholder = isRegister ? "Mindestens 6 Zeichen" : "Dein Passwort";
+  }
+
+  document.getElementById("start-btn").textContent =
+    isRegister ? "Registrieren →" :
+    isReset    ? "Reset-Link senden →" :
+                 "Anmelden →";
+
   setAuthHint("", false, false);
+}
+
+async function resetPassword() {
+  const firstname = document.getElementById("firstname-input").value.trim();
+  const lastname  = document.getElementById("lastname-input").value.trim();
+  const email     = document.getElementById("reset-email-input").value.trim().toLowerCase();
+  const name      = (firstname + " " + lastname).trim();
+
+  if (!firstname) { document.getElementById("firstname-input").focus(); return; }
+  if (!lastname)  { document.getElementById("lastname-input").focus();  return; }
+  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    setAuthHint("Bitte eine gültige E-Mail-Adresse eingeben.", true, false);
+    document.getElementById("reset-email-input").focus();
+    return;
+  }
+
+  if (!db) { setAuthHint("Keine Datenbankverbindung.", true, false); return; }
+
+  const btn = document.getElementById("start-btn");
+  btn.disabled = true;
+  btn.textContent = "Sende…";
+
+  try {
+    // Prüfen ob Name + E-Mail übereinstimmen
+    const { data: player } = await db
+      .from("players")
+      .select("player_name, email")
+      .eq("player_name", name)
+      .maybeSingle();
+
+    if (!player) {
+      setAuthHint(`Kein Konto mit dem Namen <b>${esc(name)}</b> gefunden.`, true, false);
+      return;
+    }
+    if (player.email !== email) {
+      setAuthHint("Name und E-Mail-Adresse stimmen nicht überein.", true, false);
+      return;
+    }
+
+    // Supabase sendet Reset-Link an die E-Mail
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname + "?reset=1"
+    });
+
+    if (error) {
+      setAuthHint("Fehler: " + error.message, true, false);
+      return;
+    }
+
+    setAuthHint(
+      `✅ Reset-Link gesendet!<br>Prüfe dein Postfach bei <b>${esc(email)}</b> und klicke auf den Link um ein neues Passwort zu setzen.`,
+      false, true
+    );
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Reset-Link senden →";
+  }
 }
 
 function setAuthHint(msg, isError, isSuccess) {
@@ -731,14 +821,20 @@ async function handleAuth() {
   const name      = (firstname + " " + lastname).trim();
 
   if (!firstname) { document.getElementById("firstname-input").focus(); return; }
-  if (!lastname)  { document.getElementById("lastname-input").focus();  return; }
   if (!password)  { document.getElementById("pin-input").focus(); return; }
 
-  // Admin login (legacy, kein Auth nötig)
+  // Admin login: nur Vorname "Admin" + PIN nötig, kein Nachname erforderlich
   if (firstname.toLowerCase() === "admin") {
     const hash = await hashPin("admin", password);
     if (hash === ADMIN_PIN_HASH) { openAdminPanel(); return; }
     setAuthHint("Falscher Admin-PIN.", true, false);
+    return;
+  }
+
+  if (!lastname)  { document.getElementById("lastname-input").focus();  return; }
+
+  if (authMode === "reset") {
+    await resetPassword();
     return;
   }
 
@@ -2396,7 +2492,88 @@ function goHome() {
 initSupabase();
 loadHomeStat();
 tryResumeChallenge();
+handlePasswordResetReturn();
+
+// ══════════════════════════════════════════════════════════════════
+//  PASSWORT-RESET RÜCKKEHR
+// ══════════════════════════════════════════════════════════════════
+
+async function handlePasswordResetReturn() {
+  // Supabase setzt nach Klick auf Reset-Link die Session via URL-Hash
+  // type=recovery ist im Hash-Fragment enthalten
+  const hashStr = window.location.hash;
+  if (!hashStr.includes("type%3Drecovery") && !hashStr.includes("type=recovery")) return;
+
+  await new Promise(r => setTimeout(r, 500));
+  if (!db) return;
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) return;
+
+  document.getElementById("reset-modal").style.display = "flex";
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+async function submitNewPassword() {
+  const pw1 = document.getElementById("new-password-input").value;
+  const pw2 = document.getElementById("new-password-confirm").value;
+  const hint = document.getElementById("reset-modal-hint");
+
+  const setHint = (msg, err) => {
+    hint.innerHTML = msg;
+    hint.className = "auth-hint" + (err ? " error" : " success");
+  };
+
+  if (pw1.length < 6) { setHint("Mindestens 6 Zeichen.", true); return; }
+  if (pw1 !== pw2)    { setHint("Passwörter stimmen nicht überein.", true); return; }
+
+  const btn = document.querySelector("#reset-modal .btn-primary");
+  btn.disabled = true;
+  btn.textContent = "Speichern…";
+
+  try {
+    const { error } = await db.auth.updateUser({ password: pw1 });
+    if (error) { setHint("Fehler: " + error.message, true); return; }
+
+    setHint("✅ Passwort erfolgreich geändert!", false);
+    await db.auth.signOut();
+    setTimeout(() => {
+      document.getElementById("reset-modal").style.display = "none";
+      switchAuthTab("login");
+    }, 2000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Passwort speichern →";
+  }
+}
+
 </script>
+
+
+<!-- PASSWORT-RESET MODAL (erscheint wenn User vom Reset-Link zurückkommt) -->
+<div id="reset-modal" style="
+  display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(14,26,20,.95); align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:28px 24px; max-width:320px; width:100%; text-align:center;">
+    <div style="font-family:var(--mono); font-size:11px; color:var(--green); letter-spacing:.15em;
+      text-transform:uppercase; margin-bottom:12px;">Neues Passwort setzen</div>
+    <div style="font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.5;">
+      Wähle ein neues Passwort für dein Konto.
+    </div>
+    <div class="input-wrap" style="text-align:left;">
+      <label>Neues Passwort</label>
+      <input type="password" id="new-password-input" placeholder="Mindestens 6 Zeichen"
+        maxlength="64" autocomplete="new-password">
+    </div>
+    <div class="input-wrap" style="text-align:left;">
+      <label>Passwort wiederholen</label>
+      <input type="password" id="new-password-confirm" placeholder="Nochmals eingeben"
+        maxlength="64" autocomplete="new-password">
+    </div>
+    <div class="auth-hint" id="reset-modal-hint" style="margin-bottom:14px;"></div>
+    <button class="btn-primary" onclick="submitNewPassword()">Passwort speichern →</button>
+  </div>
+</div>
 
 </body>
 </html>
