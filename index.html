@@ -97,43 +97,6 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 }
 .pin-hint.error { color: var(--red); }
 
-/* ── AUTH TABS ── */
-.auth-tabs {
-  display: flex; width: 100%; max-width: 320px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 3px; margin-bottom: 20px; gap: 3px;
-}
-.auth-tab {
-  flex: 1; padding: 10px; border: none; border-radius: 8px;
-  font-family: var(--sans); font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: all .2s; background: transparent; color: var(--muted);
-}
-.auth-tab.active {
-  background: var(--green); color: var(--bg);
-}
-.auth-hint {
-  font-size: 11px; color: var(--muted); text-align: center;
-  max-width: 280px; line-height: 1.5; margin-bottom: 18px; margin-top: -2px;
-}
-.auth-hint.error   { color: var(--red); }
-.auth-hint.success { color: var(--green); }
-.auth-divider { 
-  font-family: var(--mono); font-size: 10px; color: var(--muted);
-  letter-spacing: .1em; text-transform: uppercase;
-  margin-bottom: 14px; margin-top: -4px;
-}
-#email-wrap    { display: none; }
-#reset-wrap    { display: none; }
-#password-wrap { display: block; }
-.forgot-link {
-  background: none; border: none; color: var(--muted);
-  font-family: var(--mono); font-size: 11px; letter-spacing: .05em;
-  cursor: pointer; text-decoration: underline; margin-top: -6px;
-  margin-bottom: 14px; align-self: flex-start; padding: 0;
-}
-.forgot-link:hover { color: var(--green); }
-
-
 .home-leaderboard-btn {
   display: block; margin-top: 20px; background: none; border: none;
   font-family: var(--mono); font-size: 12px; color: var(--muted);
@@ -441,35 +404,20 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <div class="stat"><div class="stat-num">10h</div><div class="stat-lbl">Deine Zeit</div></div>
     <div class="stat"><div class="stat-num" id="home-players">–</div><div class="stat-lbl">Teilnehmer</div></div>
   </div>
-  <!-- Auth-Tabs: Anmelden / Registrieren / Passwort vergessen -->
-  <div class="auth-tabs">
-    <button class="auth-tab active" id="tab-login"    onclick="switchAuthTab('login')">Anmelden</button>
-    <button class="auth-tab"        id="tab-register" onclick="switchAuthTab('register')">Registrieren</button>
-    <button class="auth-tab"        id="tab-reset"    onclick="switchAuthTab('reset')">🔑</button>
-  </div>
-
-  <div class="input-wrap" id="name-wrap-first">
+  <div class="input-wrap">
     <label>Vorname</label>
-    <input type="text" id="firstname-input" placeholder="z.B. Anna" maxlength="20" autocomplete="given-name">
+    <input type="text" id="firstname-input" placeholder="z.B. Anna" maxlength="20" autocomplete="off">
   </div>
-  <div class="input-wrap" id="name-wrap-last">
+  <div class="input-wrap">
     <label>Nachname</label>
-    <input type="text" id="lastname-input" placeholder="z.B. Müller" maxlength="20" autocomplete="family-name">
+    <input type="text" id="lastname-input" placeholder="z.B. Müller" maxlength="20" autocomplete="off">
   </div>
-  <div class="input-wrap" id="email-wrap">
-    <label>E-Mail</label>
-    <input type="email" id="email-input" placeholder="anna@beispiel.ch" maxlength="120" autocomplete="email">
+  <div class="input-wrap">
+    <label>PIN (4 Ziffern)</label>
+    <input type="tel" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
   </div>
-  <div class="input-wrap" id="reset-wrap">
-    <label>E-Mail (für Passwort-Reset)</label>
-    <input type="email" id="reset-email-input" placeholder="anna@beispiel.ch" maxlength="120" autocomplete="email">
-  </div>
-  <div class="input-wrap" id="password-wrap">
-    <label id="pin-label">Passwort</label>
-    <input type="password" id="pin-input" placeholder="Mindestens 6 Zeichen" maxlength="64" autocomplete="current-password">
-  </div>
-  <div class="auth-hint" id="pin-hint"></div>
-  <button class="btn-primary" id="start-btn" onclick="handleAuth()">Anmelden →</button>
+  <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
+  <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
   <a class="home-leaderboard-btn" href="/les_communes_de_berne.pdf" target="_blank" rel="noopener">📄 Infos &amp; Anleitung</a>
 </div>
 
@@ -713,279 +661,287 @@ async function loadHomeStat() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  AUTH (Supabase Auth – E-Mail + Passwort)
+//  PIN HASHING (SHA-256 via Web Crypto API)
 // ══════════════════════════════════════════════════════════════════
-
-const ADMIN_PIN_HASH = "79eb9d9bad6ebc25ca318664a4e54d5a4cfa72bf6701b16b15b2e4da3f3754ad";
-let authMode = "login"; // "login" | "register" | "reset"
-
-function switchAuthTab(mode) {
-  authMode = mode;
-  const isLogin    = mode === "login";
-  const isRegister = mode === "register";
-  const isReset    = mode === "reset";
-
-  document.getElementById("tab-login")   .classList.toggle("active", isLogin);
-  document.getElementById("tab-register").classList.toggle("active", isRegister);
-  document.getElementById("tab-reset")   .classList.toggle("active", isReset);
-
-  // Felder ein-/ausblenden
-  document.getElementById("email-wrap")   .style.display = isRegister ? "block" : "none";
-  document.getElementById("reset-wrap")   .style.display = isReset    ? "block" : "none";
-  document.getElementById("password-wrap").style.display = isReset    ? "none"  : "block";
-  document.getElementById("name-wrap-first").style.display = isReset  ? "block" : "block"; // immer sichtbar
-  document.getElementById("name-wrap-last") .style.display = isReset  ? "block" : "block"; // immer sichtbar
-
-  if (!isReset) {
-    document.getElementById("pin-input").setAttribute("autocomplete", isRegister ? "new-password" : "current-password");
-    document.getElementById("pin-input").placeholder = isRegister ? "Mindestens 6 Zeichen" : "Dein Passwort";
-  }
-
-  document.getElementById("start-btn").textContent =
-    isRegister ? "Registrieren →" :
-    isReset    ? "Reset-Link senden →" :
-                 "Anmelden →";
-
-  setAuthHint("", false, false);
-}
-
-async function resetPassword() {
-  const firstname = document.getElementById("firstname-input").value.trim();
-  const lastname  = document.getElementById("lastname-input").value.trim();
-  const email     = document.getElementById("reset-email-input").value.trim().toLowerCase();
-  const name      = (firstname + " " + lastname).trim();
-
-  if (!firstname) { document.getElementById("firstname-input").focus(); return; }
-  if (!lastname)  { document.getElementById("lastname-input").focus();  return; }
-  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
-    setAuthHint("Bitte eine gültige E-Mail-Adresse eingeben.", true, false);
-    document.getElementById("reset-email-input").focus();
-    return;
-  }
-
-  if (!db) { setAuthHint("Keine Datenbankverbindung.", true, false); return; }
-
-  const btn = document.getElementById("start-btn");
-  btn.disabled = true;
-  btn.textContent = "Sende…";
-
-  try {
-    // Prüfen ob Name + E-Mail übereinstimmen
-    const { data: player } = await db
-      .from("players")
-      .select("player_name, email")
-      .eq("player_name", name)
-      .maybeSingle();
-
-    if (!player) {
-      setAuthHint(`Kein Konto mit dem Namen <b>${esc(name)}</b> gefunden.`, true, false);
-      return;
-    }
-    if (player.email !== email) {
-      setAuthHint("Name und E-Mail-Adresse stimmen nicht überein.", true, false);
-      return;
-    }
-
-    // Supabase sendet Reset-Link an die E-Mail
-    const { error } = await db.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname + "?reset=1"
-    });
-
-    if (error) {
-      setAuthHint("Fehler: " + error.message, true, false);
-      return;
-    }
-
-    setAuthHint(
-      `✅ Reset-Link gesendet!<br>Prüfe dein Postfach bei <b>${esc(email)}</b> und klicke auf den Link um ein neues Passwort zu setzen.`,
-      false, true
-    );
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Reset-Link senden →";
-  }
-}
-
-function setAuthHint(msg, isError, isSuccess) {
-  const el = document.getElementById("pin-hint");
-  el.innerHTML = msg;
-  el.className = "auth-hint" + (isError ? " error" : isSuccess ? " success" : "");
-}
-
-// Legacy alias used elsewhere in the codebase
-function setPinHint(msg, isError) { setAuthHint(msg, isError, false); }
-
-async function handleAuth() {
-  const firstname = document.getElementById("firstname-input").value.trim();
-  const lastname  = document.getElementById("lastname-input").value.trim();
-  const password  = document.getElementById("pin-input").value;
-  const name      = (firstname + " " + lastname).trim();
-
-  if (!firstname) { document.getElementById("firstname-input").focus(); return; }
-  if (!password)  { document.getElementById("pin-input").focus(); return; }
-
-  // Admin login: nur Vorname "Admin" + PIN nötig, kein Nachname erforderlich
-  if (firstname.toLowerCase() === "admin") {
-    const hash = await hashPin("admin", password);
-    if (hash === ADMIN_PIN_HASH) { openAdminPanel(); return; }
-    setAuthHint("Falscher Admin-PIN.", true, false);
-    return;
-  }
-
-  if (!lastname)  { document.getElementById("lastname-input").focus();  return; }
-
-  if (authMode === "reset") {
-    await resetPassword();
-    return;
-  }
-
-  const btn = document.getElementById("start-btn");
-  btn.disabled = true;
-  btn.textContent = "Bitte warten…";
-
-  try {
-    if (authMode === "register") {
-      await registerUser(name, password);
-    } else {
-      await loginUser(name, password);
-    }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = authMode === "register" ? "Registrieren →" : "Anmelden →";
-  }
-}
-
-async function registerUser(name, password) {
-  const email = document.getElementById("email-input").value.trim().toLowerCase();
-
-  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
-    setAuthHint("Bitte eine gültige E-Mail-Adresse eingeben.", true, false);
-    document.getElementById("email-input").focus();
-    return;
-  }
-  if (password.length < 6) {
-    setAuthHint("Das Passwort muss mindestens 6 Zeichen lang sein.", true, false);
-    document.getElementById("pin-input").focus();
-    return;
-  }
-
-  if (!db) { setAuthHint("Keine Datenbankverbindung.", true, false); return; }
-
-  // Check ob Name schon vergeben
-  const { data: existing } = await db.from("players").select("player_name").eq("player_name", name).maybeSingle();
-  if (existing) {
-    setAuthHint(`Der Name <b>${esc(name)}</b> ist bereits vergeben. Bitte melde dich an oder wähle einen anderen Namen.`, true, false);
-    return;
-  }
-
-  // Supabase Auth: Account erstellen (ohne E-Mail-Bestätigung)
-  const { data, error } = await db.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { player_name: name }
-    }
-  });
-
-  if (error) {
-    if (error.message.includes("already registered")) {
-      setAuthHint("Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an.", true, false);
-    } else {
-      setAuthHint("Fehler: " + error.message, true, false);
-    }
-    return;
-  }
-
-  // players-Eintrag direkt anlegen (kein Trigger nötig, da keine E-Mail-Bestätigung)
-  if (data.user) {
-    const { error: insertErr } = await db.from("players").insert({
-      player_name: name,
-      email:        email,
-      auth_user_id: data.user.id
-    });
-    if (insertErr && !insertErr.message.includes("duplicate")) {
-      console.error("players insert:", insertErr);
-    }
-  }
-
-  // Direkt einloggen
-  setAuthHint("✅ Registrierung erfolgreich! Du wirst eingeloggt…", false, true);
-  playerName = name;
-  await enterDashboard();
-}
-
-async function loginUser(name, password) {
-  if (!db) {
-    // Offline/Demo: direkt einloggen ohne Check
-    playerName = name;
-    await enterDashboard();
-    return;
-  }
-
-  // players-Eintrag anhand des Namens holen → E-Mail ermitteln
-  const { data: player, error: playerErr } = await db
-    .from("players")
-    .select("player_name, email, auth_user_id")
-    .eq("player_name", name)
-    .maybeSingle();
-
-  if (playerErr) { console.error(playerErr); }
-
-  if (!player) {
-    // Neuer Name → hinweis auf Registrierung
-    setAuthHint(`Kein Konto mit dem Namen <b>${esc(name)}</b> gefunden.<br>Bitte zuerst registrieren.`, true, false);
-    return;
-  }
-
-  // Supabase Auth signIn mit E-Mail + Passwort
-  const { data, error } = await db.auth.signInWithPassword({
-    email: player.email,
-    password
-  });
-
-  if (error) {
-    if (error.message.includes("Email not confirmed")) {
-      setAuthHint("E-Mail-Adresse noch nicht bestätigt. Bitte prüfe dein Postfach.", true, false);
-    } else if (error.message.includes("Invalid login credentials")) {
-      setAuthHint("Falsches Passwort. Bitte erneut versuchen.", true, false);
-    } else {
-      setAuthHint("Fehler beim Anmelden: " + error.message, true, false);
-    }
-    return;
-  }
-
-  setAuthHint("Willkommen zurück!", false, true);
-  playerName = name;
-  await enterDashboard();
-}
-
-// Legacy für Admin-Panel (bleibt unverändert)
 async function hashPin(name, pin) {
+  // Salt with the name so identical PINs don't produce identical hashes across users
   const enc = new TextEncoder().encode("bern337::" + name.toLowerCase() + "::" + pin);
   const buf = await crypto.subtle.digest("SHA-256", enc);
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Legacy – nicht mehr für normales Login verwendet, bleibt für bestehende Admin-Funktionen
-async function verifyOrRegisterPin(name, pin) {
-  if (!db) return true;
-  const hash = await hashPin(name, pin);
-  const { data, error } = await db.from("players").select("player_name, pin_hash").eq("player_name", name).maybeSingle();
-  if (error) { console.error("players lookup:", error); return true; }
-  if (!data) {
-    const { error: insertErr } = await db.from("players").insert({ player_name: name, pin_hash: hash });
-    if (insertErr) { console.warn("players insert race:", insertErr); return verifyOrRegisterPin(name, pin); }
-    return true;
-  }
-  return data.pin_hash === hash;
+function setPinHint(msg, isError) {
+  const el = document.getElementById("pin-hint");
+  el.innerHTML = msg;
+  el.className = "pin-hint" + (isError ? " error" : "");
 }
 
+// Hash of "admin" + secret PIN, salted the same way as hashPin(). Never store the PIN itself.
+const ADMIN_PIN_HASH = "79eb9d9bad6ebc25ca318664a4e54d5a4cfa72bf6701b16b15b2e4da3f3754ad";
+
+async function loginAndCheckStatus() {
+  const firstname = document.getElementById("firstname-input").value.trim();
+  const lastname  = document.getElementById("lastname-input").value.trim();
+  const name = (firstname + " " + lastname).trim();
+  const pin  = document.getElementById("pin-input").value.trim();
+
+  if (!firstname) { document.getElementById("firstname-input").focus(); return; }
+  if (!lastname) { document.getElementById("lastname-input").focus(); return; }
+  if (!/^\d{4}$/.test(pin)) {
+    setPinHint("Bitte einen 4-stelligen PIN eingeben.", true);
+    document.getElementById("pin-input").focus();
+    return;
+  }
+
+  // Admin login: firstname "Admin" (case-insensitive) + correct secret PIN
+  if (firstname.toLowerCase() === "admin") {
+    const adminHash = await hashPin("admin", pin);
+    if (adminHash === ADMIN_PIN_HASH) {
+      openAdminPanel();
+      return;
+    }
+    setPinHint("Falscher Admin-PIN.", true);
+    return;
+  }
+
+  const startBtn = document.getElementById("start-btn");
+  startBtn.disabled = true;
+  startBtn.textContent = "Prüfe…";
+
+  try {
+    const ok = await verifyOrRegisterPin(name, pin);
+    if (!ok) {
+      startBtn.disabled = false;
+      startBtn.textContent = "Einloggen →";
+      return;
+    }
+  } catch(e) {
+    console.error("PIN check failed:", e);
+    // Fail open if Supabase unreachable, so the app still works offline
+  }
+
+  startBtn.disabled = false;
+  startBtn.textContent = "Einloggen →";
+  playerName = name;
+
+  await enterDashboard();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  UNIFIED DASHBOARD (single screen for: logged-in-idle and
+//  session-running states — buttons stay in the same place, only their
+//  label/behavior and the map dimming change)
+// ══════════════════════════════════════════════════════════════════
+let dashboardActiveSession = null; // session row from DB if one is running, else null
+
+// Entry point right after login. Checks for an existing active session and
+// shows the dashboard accordingly. This is the single gatekeeper that
+// prevents the "logged in twice, two parallel runs" bug — a new session is
+// only ever created via startNewChallenge(), never silently here.
+async function enterDashboard() {
+  showScreen("map");
+  initMap();
+  document.getElementById("hud-name").textContent = playerName;
+
+  dashboardActiveSession = null;
+
+  if (db) {
+    try {
+      const { data, error } = await db
+        .from("sessions")
+        .select("id, started_at, count, gemeinden, active")
+        .eq("player_name", playerName)
+        .eq("active", true)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        const elapsedMs = Date.now() - new Date(data.started_at).getTime();
+        const durationMs = CHALLENGE_DURATION_H * 3600 * 1000;
+        if (elapsedMs < durationMs) {
+          dashboardActiveSession = data;
+        }
+      }
+    } catch(e) {
+      console.error("enterDashboard lookup:", e);
+    }
+  }
+
+  if (dashboardActiveSession) {
+    resumeExistingSession(dashboardActiveSession);
+  } else {
+    showIdleDashboard();
+  }
+}
+
+// State: logged in, no session running. Map is dimmed, session-related
+// buttons (GPS, quick-log, GPX) are hidden, only the start button is active.
+function showIdleDashboard() {
+  sessionId = null;
+  collected = new Set();
+  startTime = null;
+
+  document.getElementById("map-dim-overlay").classList.add("show");
+  document.getElementById("hud-timer").textContent = "–";
+  updateHUD();
+  refreshMapStyle();
+
+  document.getElementById("gps-pill").style.display = "none";
+  document.getElementById("quick-log-btn").style.display = "none";
+  document.getElementById("gpx-live-btn").style.display = "none";
+  document.getElementById("current-bar").classList.remove("up");
+
+  const btn = document.getElementById("session-action-btn");
+  btn.style.display = "block";
+  btn.classList.remove("cancel-style");
+  btn.classList.add("idle-style");
+  btn.textContent = "▶ Starten";
+  btn.onclick = startNewChallenge;
+
+  clearLocalState();
+}
+
+// State: a session is actively running. Map is full brightness, all
+// session-related buttons are visible, main button becomes "Abbrechen".
+function showRunningDashboard() {
+  document.getElementById("map-dim-overlay").classList.remove("show");
+
+  document.getElementById("gps-pill").style.display = "flex";
+  document.getElementById("quick-log-btn").style.display = "block";
+  document.getElementById("gpx-live-btn").style.display = "block";
+
+  const btn = document.getElementById("session-action-btn");
+  btn.style.display = "block";
+  btn.classList.remove("idle-style");
+  btn.classList.add("cancel-style");
+  btn.textContent = "✕ Abbrechen";
+  btn.onclick = confirmCancelSession;
+}
+
+function sessionActionClick() {
+  // no-op placeholder; real handler is assigned dynamically via btn.onclick
+  // in showIdleDashboard()/showRunningDashboard()
+}
+
+function confirmCancelSession() {
+  if (!confirm("Session wirklich abbrechen? Dein bisheriger Fortschritt bleibt für die Bestenliste gespeichert, aber die Challenge endet jetzt.")) return;
+  cancelCurrentSession();
+}
+
+async function cancelCurrentSession() {
+  clearInterval(timerInterval);
+  stopGPS();
+  if (realtimeChannel) { db.removeChannel(realtimeChannel); realtimeChannel = null; }
+
+  if (db && sessionId) {
+    try {
+      await db.from("sessions").update({ active: false }).eq("id", sessionId);
+    } catch(e) {
+      console.error("cancelCurrentSession:", e);
+    }
+  }
+
+  clearLocalState();
+  showIdleDashboard();
+  showToast("Session abgebrochen");
+}
+
+function resumeExistingSession(sessionData) {
+  sessionId  = sessionData.id;
+  collected  = new Set(sessionData.gemeinden || []);
+  startTime  = new Date(sessionData.started_at).getTime();
+
+  updateHUD();
+  refreshMapStyle();
+  startTimer();
+  startGPS();
+  subscribeRealtime();
+  persistLocalState();
+  showRunningDashboard();
+  showToast("👋 Weiter geht's, " + playerName + "!");
+}
+
+async function startNewChallenge() {
+  // Safety net: make sure no other session for this player is still marked
+  // active before creating a new one. This is what actually prevents two
+  // parallel runs.
+  if (db) {
+    try {
+      await db.from("sessions")
+        .update({ active: false })
+        .eq("player_name", playerName)
+        .eq("active", true);
+    } catch(e) {
+      console.error("startNewChallenge: failed to close old sessions:", e);
+    }
+  }
+
+  sessionId  = crypto.randomUUID();
+  collected  = new Set();
+  startTime  = Date.now();
+
+  updateHUD();
+  refreshMapStyle();
+  startTimer();
+  startGPS();
+  saveSessionStart();
+  subscribeRealtime();
+  persistLocalState();
+  showRunningDashboard();
+}
+
+// Returns true if login is OK (new or correct PIN), false if PIN was wrong
+async function verifyOrRegisterPin(name, pin) {
+  if (!db) return true; // offline/demo mode: skip check
+
+  const hash = await hashPin(name, pin);
+
+  const { data, error } = await db
+    .from("players")
+    .select("player_name, pin_hash")
+    .eq("player_name", name)
+    .maybeSingle();
+
+  if (error) { console.error("players lookup:", error); return true; }
+
+  if (!data) {
+    // New player — register
+    const { error: insertErr } = await db.from("players").insert({
+      player_name: name,
+      pin_hash: hash
+    });
+    if (insertErr) {
+      // Race condition: someone else just registered this name — re-check
+      console.warn("players insert race:", insertErr);
+      return verifyOrRegisterPin(name, pin);
+    }
+    setPinHint("Neuer PIN gespeichert. Merk ihn dir für nächstes Mal!", false);
+    return true;
+  }
+
+  if (data.pin_hash === hash) {
+    setPinHint("Willkommen zurück! Fortsetzen läuft…", false);
+    return true;
+  }
+
+  setPinHint("Falscher PIN für diesen Namen. Bitte erneut versuchen.", true);
+  return false;
+}
+
+// Like verifyOrRegisterPin, but never creates a new player — used for
+// "My Activities", where a brand-new name simply has no activities yet.
 async function verifyPinStrict(name, pin) {
   if (!db) return false;
   const hash = await hashPin(name, pin);
-  const { data, error } = await db.from("players").select("player_name, pin_hash").eq("player_name", name).maybeSingle();
+  const { data, error } = await db
+    .from("players")
+    .select("player_name, pin_hash")
+    .eq("player_name", name)
+    .maybeSingle();
+
   if (error) { console.error("players lookup:", error); return false; }
-  if (!data) return false;
+  if (!data) return false; // unknown name — nothing to show
   return data.pin_hash === hash;
 }
 
@@ -2457,13 +2413,15 @@ function backToDashboardFromEnd() {
 // won't accidentally resume this session. To truly continue later, log back
 // in with the same name+PIN — enterDashboard() looks up the active session
 // in the database directly, independent of localStorage.
-async function logoutToLogin() {
+function logoutToLogin() {
   clearInterval(timerInterval);
   stopGPS();
   if (realtimeChannel) { db.removeChannel(realtimeChannel); realtimeChannel = null; }
-  clearLocalState();
 
-  if (db) await db.auth.signOut();
+  // Important: clear localStorage too, otherwise tryResumeChallenge() would
+  // silently resurrect this exact session on the next page load/boot,
+  // bypassing whatever name the player types in next.
+  clearLocalState();
 
   playerName = "";
   sessionId  = null;
@@ -2473,9 +2431,8 @@ async function logoutToLogin() {
 
   document.getElementById("firstname-input").value = "";
   document.getElementById("lastname-input").value = "";
-  document.getElementById("email-input").value = "";
   document.getElementById("pin-input").value = "";
-  switchAuthTab("login");
+  setPinHint("Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.", false);
   showScreen("home");
   loadHomeStat();
 }
@@ -2487,9 +2444,8 @@ function goHome() {
   clearLocalState();
   document.getElementById("firstname-input").value = "";
   document.getElementById("lastname-input").value = "";
-  document.getElementById("email-input").value = "";
   document.getElementById("pin-input").value = "";
-  switchAuthTab("login");
+  setPinHint("Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.", false);
   showScreen("home");
   loadHomeStat();
 }
@@ -2500,88 +2456,7 @@ function goHome() {
 initSupabase();
 loadHomeStat();
 tryResumeChallenge();
-handlePasswordResetReturn();
-
-// ══════════════════════════════════════════════════════════════════
-//  PASSWORT-RESET RÜCKKEHR
-// ══════════════════════════════════════════════════════════════════
-
-async function handlePasswordResetReturn() {
-  // Supabase setzt nach Klick auf Reset-Link die Session via URL-Hash
-  // type=recovery ist im Hash-Fragment enthalten
-  const hashStr = window.location.hash;
-  if (!hashStr.includes("type%3Drecovery") && !hashStr.includes("type=recovery")) return;
-
-  await new Promise(r => setTimeout(r, 500));
-  if (!db) return;
-  const { data: { session } } = await db.auth.getSession();
-  if (!session) return;
-
-  document.getElementById("reset-modal").style.display = "flex";
-  window.history.replaceState({}, document.title, window.location.pathname);
-}
-
-async function submitNewPassword() {
-  const pw1 = document.getElementById("new-password-input").value;
-  const pw2 = document.getElementById("new-password-confirm").value;
-  const hint = document.getElementById("reset-modal-hint");
-
-  const setHint = (msg, err) => {
-    hint.innerHTML = msg;
-    hint.className = "auth-hint" + (err ? " error" : " success");
-  };
-
-  if (pw1.length < 6) { setHint("Mindestens 6 Zeichen.", true); return; }
-  if (pw1 !== pw2)    { setHint("Passwörter stimmen nicht überein.", true); return; }
-
-  const btn = document.querySelector("#reset-modal .btn-primary");
-  btn.disabled = true;
-  btn.textContent = "Speichern…";
-
-  try {
-    const { error } = await db.auth.updateUser({ password: pw1 });
-    if (error) { setHint("Fehler: " + error.message, true); return; }
-
-    setHint("✅ Passwort erfolgreich geändert!", false);
-    await db.auth.signOut();
-    setTimeout(() => {
-      document.getElementById("reset-modal").style.display = "none";
-      switchAuthTab("login");
-    }, 2000);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Passwort speichern →";
-  }
-}
-
 </script>
-
-
-<!-- PASSWORT-RESET MODAL (erscheint wenn User vom Reset-Link zurückkommt) -->
-<div id="reset-modal" style="
-  display:none; position:fixed; inset:0; z-index:200;
-  background:rgba(14,26,20,.95); align-items:center; justify-content:center; padding:24px;">
-  <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px;
-    padding:28px 24px; max-width:320px; width:100%; text-align:center;">
-    <div style="font-family:var(--mono); font-size:11px; color:var(--green); letter-spacing:.15em;
-      text-transform:uppercase; margin-bottom:12px;">Neues Passwort setzen</div>
-    <div style="font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.5;">
-      Wähle ein neues Passwort für dein Konto.
-    </div>
-    <div class="input-wrap" style="text-align:left;">
-      <label>Neues Passwort</label>
-      <input type="password" id="new-password-input" placeholder="Mindestens 6 Zeichen"
-        maxlength="64" autocomplete="new-password">
-    </div>
-    <div class="input-wrap" style="text-align:left;">
-      <label>Passwort wiederholen</label>
-      <input type="password" id="new-password-confirm" placeholder="Nochmals eingeben"
-        maxlength="64" autocomplete="new-password">
-    </div>
-    <div class="auth-hint" id="reset-modal-hint" style="margin-bottom:14px;"></div>
-    <button class="btn-primary" onclick="submitNewPassword()">Passwort speichern →</button>
-  </div>
-</div>
 
 </body>
 </html>
