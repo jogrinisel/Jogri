@@ -111,6 +111,29 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 }
 .support-link:hover { color: var(--green); }
 
+/* ── PIN ÄNDERN MODAL ── */
+#pin-change-modal {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(14,26,20,.92); align-items: center; justify-content: center; padding: 24px;
+}
+#pin-change-modal.open { display: flex; }
+.pin-modal-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px 24px; max-width: 320px; width: 100%;
+}
+.pin-modal-box h2 { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+.pin-modal-box p  { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+.pin-modal-hint { font-family: var(--mono); font-size: 11px; margin-bottom: 12px; min-height: 16px; }
+.pin-modal-hint.error   { color: var(--red); }
+.pin-modal-hint.success { color: var(--green); }
+.pin-modal-actions { display: flex; gap: 10px; }
+.pin-modal-actions .btn-secondary {
+  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--sans); font-size: 14px;
+  font-weight: 600; cursor: pointer;
+}
+.pin-modal-actions .btn-primary { flex: 2; }
+
 /* ── MAP SCREEN ── */
 #screen-map { background: var(--bg); }
 
@@ -457,6 +480,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <input type="tel" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
   </div>
   <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
+  <button class="support-link" id="forgot-pin-link" onclick="forgotPin()" style="margin-top:4px;">🔑 PIN vergessen? Support kontaktieren</button>
   <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
   <a class="home-leaderboard-btn" href="/les_communes_de_berne.pdf" target="_blank" rel="noopener">📄 Infos &amp; Anleitung</a>
   <button class="support-link" onclick="openSupportModal()">✉️ Support kontaktieren</button>
@@ -474,6 +498,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
       <div class="hud-name" id="hud-name">–</div>
       <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">🚪 Abmelden</button>
       <button id="hud-support" onclick="openSupportModal()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;cursor:pointer;padding:5px 10px;line-height:1;white-space:nowrap;pointer-events:auto;" title="Support">✉️ Support</button>
+      <button id="hud-pin" onclick="openPinChangeModal()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;cursor:pointer;padding:5px 10px;line-height:1;white-space:nowrap;pointer-events:auto;" title="PIN ändern">🔑 PIN</button>
       <div class="hud-timer" id="hud-timer">–</div>
     </div>
     <div class="hud-bar-row">
@@ -2381,19 +2406,16 @@ async function loadAdminList() {
 }
 
 async function adminResetPin(name) {
-  const newPin = prompt(`Neuen 4-stelligen PIN für "${name}" festlegen:`);
-  if (newPin === null) return; // cancelled
-  if (!/^\d{4}$/.test(newPin)) {
-    alert("Bitte genau 4 Ziffern eingeben.");
-    return;
-  }
+  if (!confirm(`PIN von "${name}" automatisch zurücksetzen?`)) return;
+  // Zufälligen 4-stelligen PIN generieren
+  const newPin = String(Math.floor(1000 + Math.random() * 9000));
   try {
     const newHash = await hashPin(name, newPin);
     const { error } = await db.from("players")
       .update({ pin_hash: newHash })
       .eq("player_name", name);
     if (error) throw error;
-    alert(`Neuer PIN für "${name}": ${newPin}\nBitte direkt weitergeben.`);
+    alert(`✅ Neuer PIN für "${name}":\n\n${newPin}\n\nBitte dem Spieler per Mail mitteilen.`);
   } catch(e) {
     console.error("adminResetPin:", e);
     alert("PIN zurücksetzen fehlgeschlagen.");
@@ -2560,6 +2582,77 @@ async function submitSupport() {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+//  PIN ÄNDERN
+// ══════════════════════════════════════════════════════════════════
+
+function openPinChangeModal() {
+  document.getElementById("pin-current").value = "";
+  document.getElementById("pin-new").value = "";
+  document.getElementById("pin-new2").value = "";
+  document.getElementById("pin-modal-hint").textContent = "";
+  document.getElementById("pin-modal-hint").className = "pin-modal-hint";
+  document.getElementById("pin-change-modal").classList.add("open");
+}
+
+function closePinChangeModal() {
+  document.getElementById("pin-change-modal").classList.remove("open");
+}
+
+function forgotPin() {
+  // Öffnet Support-Modal mit vorausgefüllter Nachricht
+  document.getElementById("support-name").value = typeof playerName !== 'undefined' ? playerName : "";
+  document.getElementById("support-message").value = "Ich habe meinen PIN vergessen und benötige einen neuen.";
+  document.getElementById("support-hint").textContent = "";
+  document.getElementById("support-hint").className = "support-modal-hint";
+  document.getElementById("support-modal").classList.add("open");
+}
+
+async function submitPinChange() {
+  const current = document.getElementById("pin-current").value.trim();
+  const newPin  = document.getElementById("pin-new").value.trim();
+  const newPin2 = document.getElementById("pin-new2").value.trim();
+  const hint    = document.getElementById("pin-modal-hint");
+
+  const setHint = (msg, err) => {
+    hint.textContent = msg;
+    hint.className = "pin-modal-hint" + (err ? " error" : " success");
+  };
+
+  if (!/^\d{4}$/.test(current)) { setHint("Aktueller PIN: genau 4 Ziffern eingeben.", true); return; }
+  if (!/^\d{4}$/.test(newPin))  { setHint("Neuer PIN: genau 4 Ziffern eingeben.", true); return; }
+  if (newPin !== newPin2)         { setHint("Neue PINs stimmen nicht überein.", true); return; }
+  if (newPin === current)         { setHint("Neuer PIN muss sich vom alten unterscheiden.", true); return; }
+
+  const btn = document.querySelector("#pin-change-modal .btn-primary");
+  btn.disabled = true;
+  btn.textContent = "Prüfen…";
+
+  try {
+    // Aktuellen PIN verifizieren
+    const ok = await verifyPinStrict(playerName, current);
+    if (!ok) { setHint("Aktueller PIN ist falsch.", true); return; }
+
+    // Neuen Hash setzen
+    const newHash = await hashPin(playerName, newPin);
+    const { error } = await db.from("players")
+      .update({ pin_hash: newHash })
+      .eq("player_name", playerName);
+
+    if (error) throw error;
+
+    setHint("✅ PIN erfolgreich geändert!", false);
+    setTimeout(() => closePinChangeModal(), 2000);
+  } catch(e) {
+    console.error("submitPinChange:", e);
+    setHint("Fehler beim Speichern. Bitte nochmals versuchen.", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Speichern →";
+  }
+}
+
 </script>
 
 
@@ -2581,6 +2674,31 @@ async function submitSupport() {
     <div class="support-modal-actions">
       <button class="btn-secondary" onclick="closeSupportModal()">Abbrechen</button>
       <button class="btn-primary" onclick="submitSupport()">Senden →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN ÄNDERN MODAL -->
+<div id="pin-change-modal">
+  <div class="pin-modal-box">
+    <h2>🔑 PIN ändern</h2>
+    <p>Gib deinen aktuellen PIN ein und wähle einen neuen 4-stelligen PIN.</p>
+    <div class="input-wrap">
+      <label>Aktueller PIN</label>
+      <input type="tel" id="pin-current" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+    </div>
+    <div class="input-wrap">
+      <label>Neuer PIN</label>
+      <input type="tel" id="pin-new" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+    </div>
+    <div class="input-wrap">
+      <label>Neuer PIN wiederholen</label>
+      <input type="tel" id="pin-new2" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+    </div>
+    <div class="pin-modal-hint" id="pin-modal-hint"></div>
+    <div class="pin-modal-actions">
+      <button class="btn-secondary" onclick="closePinChangeModal()">Abbrechen</button>
+      <button class="btn-primary" onclick="submitPinChange()">Speichern →</button>
     </div>
   </div>
 </div>
