@@ -693,10 +693,10 @@ function styleFeature(f) {
   const done = collected.has(name);
   return {
     fillColor:   done ? "#3ddc84" : "transparent",
-    fillOpacity: done ? 0.30 : 0,       // reduziert: Strassen bleiben sichtbar
+    fillOpacity: done ? 0.50 : 0,
     color:       done ? "#1db864" : "#e0182d",
-    weight:      done ? 1.5 : 1.2,
-    opacity:     done ? 0.8 : 0.7
+    weight:      done ? 2 : 1.2,
+    opacity:     done ? 0.9 : 0.7
   };
 }
 
