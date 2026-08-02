@@ -111,6 +111,44 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 }
 .support-link:hover { color: var(--green); }
 
+/* ── DISCLAIMER MODAL ── */
+#disclaimer-modal {
+  display: none; position: fixed; inset: 0; z-index: 300;
+  background: rgba(14,26,20,.95); align-items: center; justify-content: center; padding: 24px;
+}
+#disclaimer-modal.open { display: flex; }
+.disclaimer-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px 22px; max-width: 360px; width: 100%;
+}
+.disclaimer-box h2 {
+  font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 14px; text-align: center;
+}
+.disclaimer-box ul {
+  list-style: none; padding: 0; margin: 0 0 18px 0;
+}
+.disclaimer-box ul li {
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+  line-height: 1.6; padding: 6px 0; border-bottom: 1px solid var(--border);
+  padding-left: 20px; position: relative;
+}
+.disclaimer-box ul li:last-child { border-bottom: none; }
+.disclaimer-box ul li::before { content: "⚠️"; position: absolute; left: 0; }
+.disclaimer-confirm {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px;
+  font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.5;
+  cursor: pointer;
+}
+.disclaimer-confirm input[type=checkbox] { margin-top: 2px; accent-color: var(--green); flex-shrink: 0; }
+.disclaimer-actions { display: flex; gap: 10px; }
+.disclaimer-actions .btn-secondary {
+  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--sans);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.disclaimer-actions .btn-primary { flex: 2; }
+.disclaimer-actions .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── PIN ÄNDERN MODAL ── */
 #pin-change-modal {
   display: none; position: fixed; inset: 0; z-index: 200;
@@ -864,7 +902,7 @@ function showIdleDashboard() {
   btn.classList.remove("cancel-style");
   btn.classList.add("idle-style");
   btn.textContent = "▶ Starten";
-  btn.onclick = startNewChallenge;
+  btn.onclick = showDisclaimer;
 
   clearLocalState();
 }
@@ -2678,6 +2716,31 @@ async function submitPinChange() {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+//  DISCLAIMER VOR SESSION-START
+// ══════════════════════════════════════════════════════════════════
+
+function showDisclaimer() {
+  document.getElementById("disclaimer-check").checked = false;
+  document.getElementById("disclaimer-confirm-btn").disabled = true;
+  document.getElementById("disclaimer-modal").classList.add("open");
+}
+
+function closeDisclaimer() {
+  document.getElementById("disclaimer-modal").classList.remove("open");
+}
+
+function disclaimerCheckChanged() {
+  const checked = document.getElementById("disclaimer-check").checked;
+  document.getElementById("disclaimer-confirm-btn").disabled = !checked;
+}
+
+async function confirmDisclaimerAndStart() {
+  closeDisclaimer();
+  await startNewChallenge();
+}
+
 </script>
 
 
@@ -2724,6 +2787,28 @@ async function submitPinChange() {
     <div class="pin-modal-actions">
       <button class="btn-secondary" onclick="closePinChangeModal()">Abbrechen</button>
       <button class="btn-primary" onclick="submitPinChange()">Speichern →</button>
+    </div>
+  </div>
+</div>
+
+<!-- DISCLAIMER MODAL -->
+<div id="disclaimer-modal">
+  <div class="disclaimer-box">
+    <h2>⚠️ Sicherheitshinweis</h2>
+    <ul>
+      <li>Ich halte mich jederzeit an die Strassenverkehrsregeln.</li>
+      <li>Ich fahre nur auf für Velos erlaubten Strassen und Wegen.</li>
+      <li>Ich trage einen Helm und bin entsprechend ausgerüstet.</li>
+      <li>Ich nehme auf eigene Gefahr und Verantwortung teil.</li>
+      <li>Der Anbieter dieser App übernimmt keinerlei Haftung für Unfälle, Schäden oder Verletzungen.</li>
+    </ul>
+    <label class="disclaimer-confirm">
+      <input type="checkbox" id="disclaimer-check" onchange="disclaimerCheckChanged()">
+      Ich habe die Hinweise gelesen und akzeptiere die Bedingungen.
+    </label>
+    <div class="disclaimer-actions">
+      <button class="btn-secondary" onclick="closeDisclaimer()">Abbrechen</button>
+      <button class="btn-primary" id="disclaimer-confirm-btn" disabled onclick="confirmDisclaimerAndStart()">Challenge starten →</button>
     </div>
   </div>
 </div>
