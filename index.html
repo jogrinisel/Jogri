@@ -2372,31 +2372,56 @@ async function loadAdminList() {
   if (!db) { el.innerHTML = "<div class='lb-empty'>Keine Datenbankverbindung</div>"; return; }
 
   try {
-    const { data: sessions, error } = await db
-      .from("sessions")
-      .select("id, player_name, count, active, started_at")
+    // Alle Spieler laden
+    const { data: players, error: pErr } = await db
+      .from("players")
+      .select("player_name")
       .order("player_name", { ascending: true });
+    if (pErr) throw pErr;
 
-    if (error) throw error;
+    // Alle Sessions laden
+    const { data: sessions } = await db
+      .from("sessions")
+      .select("id, player_name, count, active, started_at");
 
-    if (!sessions || !sessions.length) {
-      el.innerHTML = "<div class='lb-empty'>Keine Einträge vorhanden</div>";
+    // Sessions pro Spieler gruppieren
+    const sessionMap = {};
+    (sessions || []).forEach(s => {
+      if (!sessionMap[s.player_name]) sessionMap[s.player_name] = [];
+      sessionMap[s.player_name].push(s);
+    });
+
+    if (!players || !players.length) {
+      el.innerHTML = "<div class='lb-empty'>Keine Spieler vorhanden</div>";
       return;
     }
 
     const durationMs = CHALLENGE_DURATION_H * 3600 * 1000;
-    el.innerHTML = sessions.map(s => {
-      const elapsedMs = s.started_at ? (Date.now() - new Date(s.started_at)) : Infinity;
-      const reallyActive = s.active && elapsedMs < durationMs;
-      const status = reallyActive ? "läuft noch" : "abgeschlossen";
+    el.innerHTML = players.map(p => {
+      const name = p.player_name;
+      const playerSessions = sessionMap[name] || [];
+
+      // Status: beste/aktive Session anzeigen
+      let detail = "Noch keine Session";
+      let sessionBtns = "";
+      if (playerSessions.length > 0) {
+        playerSessions.forEach(s => {
+          const elapsedMs = s.started_at ? (Date.now() - new Date(s.started_at)) : Infinity;
+          const reallyActive = s.active && elapsedMs < durationMs;
+          const status = reallyActive ? "läuft noch" : "abgeschlossen";
+          detail = `${s.count} Gem. · ${status}`;
+          sessionBtns += `<button class="admin-delete-btn" onclick="adminDeleteSession('${s.id}', '${esc(name)}')">Session löschen</button>`;
+        });
+      }
+
       return `<div class="admin-entry">
         <div class="admin-info">
-          <div class="admin-pname">${esc(s.player_name)}</div>
-          <div class="admin-detail">${s.count} Gem. · ${status}</div>
+          <div class="admin-pname">${esc(name)}</div>
+          <div class="admin-detail">${detail}</div>
         </div>
-        <button class="admin-delete-btn admin-reset-btn" onclick="adminResetPin('${esc(s.player_name)}')">PIN zurücksetzen</button>
-        <button class="admin-delete-btn" onclick="adminDeleteSession('${s.id}', '${esc(s.player_name)}')">Session löschen</button>
-        <button class="admin-delete-btn" onclick="adminDeletePlayer('${esc(s.player_name)}')">Account löschen</button>
+        <button class="admin-delete-btn admin-reset-btn" onclick="adminResetPin('${esc(name)}')">PIN zurücksetzen</button>
+        ${sessionBtns}
+        <button class="admin-delete-btn" onclick="adminDeletePlayer('${esc(name)}')">Account löschen</button>
       </div>`;
     }).join("");
   } catch(e) {
