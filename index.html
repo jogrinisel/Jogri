@@ -381,6 +381,39 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 
 /* Leaflet dark */
 .leaflet-control-zoom a { background: var(--surface) !important; color: var(--white) !important; border-color: var(--border) !important; }
+
+/* ── SUPPORT MODAL ── */
+#support-modal {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(14,26,20,.92); align-items: center; justify-content: center; padding: 24px;
+}
+#support-modal.open { display: flex; }
+.support-modal-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px 24px; max-width: 340px; width: 100%;
+}
+.support-modal-box h2 {
+  font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 4px;
+}
+.support-modal-box p {
+  font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 20px; line-height: 1.5;
+}
+.support-modal-box textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--white); font-family: var(--sans); font-size: 13px; padding: 10px 12px;
+  resize: vertical; min-height: 100px; margin-bottom: 10px; box-sizing: border-box;
+}
+.support-modal-box textarea:focus { outline: none; border-color: var(--green); }
+.support-modal-hint { font-family: var(--mono); font-size: 11px; margin-bottom: 12px; min-height: 16px; }
+.support-modal-hint.error   { color: var(--red); }
+.support-modal-hint.success { color: var(--green); }
+.support-modal-actions { display: flex; gap: 10px; }
+.support-modal-actions .btn-secondary {
+  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--sans); font-size: 14px;
+  font-weight: 600; cursor: pointer;
+}
+.support-modal-actions .btn-primary { flex: 2; }
 </style>
 </head>
 <body>
@@ -426,7 +459,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
   <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
   <a class="home-leaderboard-btn" href="/les_communes_de_berne.pdf" target="_blank" rel="noopener">📄 Infos &amp; Anleitung</a>
-  <a class="support-link" href="mailto:luca-t@toffenonline.ch?subject=Les%20Communes%20de%20Berne%20–%20Support&body=Name%3A%20%0AProblem%3A%20">✉️ Support kontaktieren</a>
+  <button class="support-link" onclick="openSupportModal()">✉️ Support kontaktieren</button>
 </div>
 
 <!-- MAP / DASHBOARD (single persistent screen after login) -->
@@ -440,7 +473,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <div class="hud-row1">
       <div class="hud-name" id="hud-name">–</div>
       <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">🚪 Abmelden</button>
-      <a id="hud-support" href="mailto:luca-t@toffenonline.ch?subject=Les%20Communes%20de%20Berne%20–%20Support&body=Name%3A%20%0AProblem%3A%20" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;cursor:pointer;padding:5px 10px;line-height:1;white-space:nowrap;pointer-events:auto;text-decoration:none;" title="Support">✉️ Support</a>
+      <button id="hud-support" onclick="openSupportModal()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;cursor:pointer;padding:5px 10px;line-height:1;white-space:nowrap;pointer-events:auto;" title="Support">✉️ Support</button>
       <div class="hud-timer" id="hud-timer">–</div>
     </div>
     <div class="hud-bar-row">
@@ -2465,7 +2498,91 @@ function goHome() {
 initSupabase();
 loadHomeStat();
 tryResumeChallenge();
+
+// ══════════════════════════════════════════════════════════════════
+//  SUPPORT MODAL
+// ══════════════════════════════════════════════════════════════════
+
+function openSupportModal() {
+  // Wenn eingeloggt: Name vorausfüllen
+  if (typeof playerName !== 'undefined' && playerName) {
+    document.getElementById("support-name").value = playerName;
+  }
+  document.getElementById("support-hint").textContent = "";
+  document.getElementById("support-hint").className = "support-modal-hint";
+  document.getElementById("support-message").value = "";
+  document.getElementById("support-modal").classList.add("open");
+}
+
+function closeSupportModal() {
+  document.getElementById("support-modal").classList.remove("open");
+}
+
+async function submitSupport() {
+  const name    = document.getElementById("support-name").value.trim();
+  const email   = document.getElementById("support-email").value.trim();
+  const message = document.getElementById("support-message").value.trim();
+  const hint    = document.getElementById("support-hint");
+
+  const setHint = (msg, err) => {
+    hint.textContent = msg;
+    hint.className = "support-modal-hint" + (err ? " error" : " success");
+  };
+
+  if (!name)    { setHint("Bitte deinen Namen eingeben.", true); return; }
+  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) { setHint("Bitte eine gültige E-Mail eingeben.", true); return; }
+  if (!message) { setHint("Bitte eine Nachricht eingeben.", true); return; }
+
+  const btn = document.querySelector("#support-modal .btn-primary");
+  btn.disabled = true;
+  btn.textContent = "Senden…";
+
+  try {
+    const res = await fetch("https://anfiitbptpeqkqcdscdc.supabase.co/functions/v1/send-support-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": window._supabaseKey || "" },
+      body: JSON.stringify({ name, email, message })
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      setHint("Fehler beim Senden. Bitte direkt an luca-t@toffenonline.ch schreiben.", true);
+      return;
+    }
+
+    setHint("✅ Nachricht gesendet! Du erhältst bald eine Antwort.", false);
+    setTimeout(() => closeSupportModal(), 2500);
+  } catch(e) {
+    setHint("Fehler beim Senden. Bitte direkt an luca-t@toffenonline.ch schreiben.", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Senden →";
+  }
+}
+
 </script>
 
+
+<!-- SUPPORT MODAL -->
+<div id="support-modal">
+  <div class="support-modal-box">
+    <h2>✉️ Support kontaktieren</h2>
+    <p>Beschreibe dein Problem — du erhältst eine Antwort per E-Mail.</p>
+    <div class="input-wrap">
+      <label>Dein Name</label>
+      <input type="text" id="support-name" placeholder="Vorname Nachname" maxlength="60" autocomplete="name">
+    </div>
+    <div class="input-wrap">
+      <label>Deine E-Mail</label>
+      <input type="email" id="support-email" placeholder="du@beispiel.ch" maxlength="120" autocomplete="email">
+    </div>
+    <textarea id="support-message" placeholder="Beschreibe dein Problem…"></textarea>
+    <div class="support-modal-hint" id="support-hint"></div>
+    <div class="support-modal-actions">
+      <button class="btn-secondary" onclick="closeSupportModal()">Abbrechen</button>
+      <button class="btn-primary" onclick="submitSupport()">Senden →</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
