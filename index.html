@@ -103,6 +103,13 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   cursor: pointer; text-decoration: underline; letter-spacing: .05em;
   text-align: center;
 }
+.support-link {
+  display: block; margin-top: 8px; background: none; border: none;
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+  text-decoration: underline; letter-spacing: .05em;
+  text-align: center; cursor: pointer;
+}
+.support-link:hover { color: var(--green); }
 
 /* ── MAP SCREEN ── */
 #screen-map { background: var(--bg); }
@@ -419,6 +426,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
   <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
   <a class="home-leaderboard-btn" href="/les_communes_de_berne.pdf" target="_blank" rel="noopener">📄 Infos &amp; Anleitung</a>
+  <a class="support-link" href="mailto:luca-t@toffenonline.ch?subject=Les%20Communes%20de%20Berne%20–%20Support&body=Name%3A%20%0AProblem%3A%20">✉️ Support kontaktieren</a>
 </div>
 
 <!-- MAP / DASHBOARD (single persistent screen after login) -->
@@ -432,6 +440,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <div class="hud-row1">
       <div class="hud-name" id="hud-name">–</div>
       <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">🚪 Abmelden</button>
+      <a id="hud-support" href="mailto:luca-t@toffenonline.ch?subject=Les%20Communes%20de%20Berne%20–%20Support&body=Name%3A%20%0AProblem%3A%20" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;cursor:pointer;padding:5px 10px;line-height:1;white-space:nowrap;pointer-events:auto;text-decoration:none;" title="Support">✉️ Support</a>
       <div class="hud-timer" id="hud-timer">–</div>
     </div>
     <div class="hud-bar-row">
