@@ -878,12 +878,12 @@ async function registerUser(name, password) {
     return;
   }
 
-  // Supabase Auth: Account erstellen → Verifikationsmail wird automatisch gesendet
+  // Supabase Auth: Account erstellen (ohne E-Mail-Bestätigung)
   const { data, error } = await db.auth.signUp({
     email,
     password,
     options: {
-      data: { player_name: name }   // in auth.users.raw_user_meta_data gespeichert
+      data: { player_name: name }
     }
   });
 
@@ -896,15 +896,22 @@ async function registerUser(name, password) {
     return;
   }
 
-  // Supabase sendet Bestätigungsmail – User ist noch nicht verifiziert
-  // Wir legen den players-Eintrag NACH der Verifikation an (via Auth-Trigger oder beim ersten Login)
-  // Hier zeigen wir nur die Bestätigung an
-  setAuthHint(
-    `✅ Registrierung erfolgreich!<br>Wir haben eine Bestätigungs-E-Mail an <b>${esc(email)}</b> gesendet.<br>Bitte bestätige deine E-Mail-Adresse, dann kannst du dich anmelden.`,
-    false, true
-  );
-  // Tab auf Login wechseln nach kurzer Pause
-  setTimeout(() => switchAuthTab("login"), 3000);
+  // players-Eintrag direkt anlegen (kein Trigger nötig, da keine E-Mail-Bestätigung)
+  if (data.user) {
+    const { error: insertErr } = await db.from("players").insert({
+      player_name: name,
+      email:        email,
+      auth_user_id: data.user.id
+    });
+    if (insertErr && !insertErr.message.includes("duplicate")) {
+      console.error("players insert:", insertErr);
+    }
+  }
+
+  // Direkt einloggen
+  setAuthHint("✅ Registrierung erfolgreich! Du wirst eingeloggt…", false, true);
+  playerName = name;
+  await enterDashboard();
 }
 
 async function loginUser(name, password) {
