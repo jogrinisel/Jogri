@@ -716,7 +716,8 @@ async function loadHomeStat() {
 //  AUTH (Supabase Auth – E-Mail + Passwort)
 // ══════════════════════════════════════════════════════════════════
 
-let authMode = "login"; // "login" | "register"
+const ADMIN_PIN_HASH = "79eb9d9bad6ebc25ca318664a4e54d5a4cfa72bf6701b16b15b2e4da3f3754ad";
+let authMode = "login"; // "login" | "register" | "reset"
 
 function switchAuthTab(mode) {
   authMode = mode;
