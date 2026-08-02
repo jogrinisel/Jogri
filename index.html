@@ -2538,7 +2538,7 @@ async function submitSupport() {
   btn.textContent = "Senden…";
 
   try {
-    const res = await fetch("https://anfiitbptpeqkqcdscdc.supabase.co/functions/v1/send-support-email", {
+    const res = await fetch("https://anfiitbptpeqkqcdscdc.supabase.co/functions/v1/rapid-endpoint", {
       method: "POST",
       headers: { "Content-Type": "application/json", "apikey": window._supabaseKey || "" },
       body: JSON.stringify({ name, email, message })
@@ -2546,14 +2546,14 @@ async function submitSupport() {
 
     const data = await res.json();
     if (!res.ok || data.error) {
-      setHint("Fehler beim Senden. Bitte direkt an luca-t@toffenonline.ch schreiben.", true);
+      setHint("Fehler beim Senden. Bitte später nochmals versuchen.", true);
       return;
     }
 
     setHint("✅ Nachricht gesendet! Du erhältst bald eine Antwort.", false);
     setTimeout(() => closeSupportModal(), 2500);
   } catch(e) {
-    setHint("Fehler beim Senden. Bitte direkt an luca-t@toffenonline.ch schreiben.", true);
+    setHint("Fehler beim Senden. Bitte später nochmals versuchen.", true);
   } finally {
     btn.disabled = false;
     btn.textContent = "Senden →";
