@@ -671,8 +671,8 @@ function initMap() {
   mapInstance = L.map("map", { zoomControl: true, attributionControl: false })
     .setView([46.95, 7.45], 9);
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", { maxZoom: 17 }).addTo(mapInstance);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 0.6 }).addTo(mapInstance);
+  // Heller Basislayer mit Strassen (rastertiles mit Strassen, nicht nur Labels)
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 1.0 }).addTo(mapInstance);
 
   geojsonLayer = L.geoJSON(BERN_GEOJSON, {
     style: f => styleFeature(f),
@@ -692,11 +692,11 @@ function styleFeature(f) {
   const name = f.properties?.name || String(f.id);
   const done = collected.has(name);
   return {
-    fillColor:   done ? "#3ddc84" : "#ffffff",
-    fillOpacity: done ? 0.55 : 0.05,
-    color:       "#e0182d",
-    weight:      done ? 2 : 1.4,
-    opacity: 0.9
+    fillColor:   done ? "#3ddc84" : "transparent",
+    fillOpacity: done ? 0.30 : 0,       // reduziert: Strassen bleiben sichtbar
+    color:       done ? "#1db864" : "#e0182d",
+    weight:      done ? 1.5 : 1.2,
+    opacity:     done ? 0.8 : 0.7
   };
 }
 
