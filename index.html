@@ -103,74 +103,6 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
   cursor: pointer; text-decoration: underline; letter-spacing: .05em;
   text-align: center;
 }
-.support-link {
-  display: block; margin-top: 8px; background: none; border: none;
-  font-family: var(--mono); font-size: 12px; color: var(--muted);
-  text-decoration: underline; letter-spacing: .05em;
-  text-align: center; cursor: pointer;
-}
-.support-link:hover { color: var(--green); }
-
-/* ── DISCLAIMER MODAL ── */
-#disclaimer-modal {
-  display: none; position: fixed; inset: 0; z-index: 300;
-  background: rgba(14,26,20,.95); align-items: center; justify-content: center; padding: 24px;
-}
-#disclaimer-modal.open { display: flex; }
-.disclaimer-box {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  padding: 28px 22px; max-width: 360px; width: 100%;
-}
-.disclaimer-box h2 {
-  font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 14px; text-align: center;
-}
-.disclaimer-box ul {
-  list-style: none; padding: 0; margin: 0 0 18px 0;
-}
-.disclaimer-box ul li {
-  font-family: var(--mono); font-size: 12px; color: var(--muted);
-  line-height: 1.6; padding: 6px 0; border-bottom: 1px solid var(--border);
-  padding-left: 20px; position: relative;
-}
-.disclaimer-box ul li:last-child { border-bottom: none; }
-.disclaimer-box ul li::before { content: "⚠️"; position: absolute; left: 0; }
-.disclaimer-confirm {
-  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px;
-  font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.5;
-  cursor: pointer;
-}
-.disclaimer-confirm input[type=checkbox] { margin-top: 2px; accent-color: var(--green); flex-shrink: 0; }
-.disclaimer-actions { display: flex; gap: 10px; }
-.disclaimer-actions .btn-secondary {
-  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
-  background: transparent; color: var(--muted); font-family: var(--sans);
-  font-size: 14px; font-weight: 600; cursor: pointer;
-}
-.disclaimer-actions .btn-primary { flex: 2; }
-.disclaimer-actions .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* ── PIN ÄNDERN MODAL ── */
-#pin-change-modal {
-  display: none; position: fixed; inset: 0; z-index: 200;
-  background: rgba(14,26,20,.92); align-items: center; justify-content: center; padding: 24px;
-}
-#pin-change-modal.open { display: flex; }
-.pin-modal-box {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  padding: 28px 24px; max-width: 320px; width: 100%;
-}
-.pin-modal-box h2 { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
-.pin-modal-box p  { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
-.pin-modal-hint { font-family: var(--mono); font-size: 11px; margin-bottom: 12px; min-height: 16px; }
-.pin-modal-hint.error   { color: var(--red); }
-.pin-modal-hint.success { color: var(--green); }
-.pin-modal-actions { display: flex; gap: 10px; }
-.pin-modal-actions .btn-secondary {
-  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
-  background: transparent; color: var(--muted); font-family: var(--sans); font-size: 14px;
-  font-weight: 600; cursor: pointer;
-}
-.pin-modal-actions .btn-primary { flex: 2; }
 
 /* ── MAP SCREEN ── */
 #screen-map { background: var(--bg); }
@@ -442,39 +374,6 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 
 /* Leaflet dark */
 .leaflet-control-zoom a { background: var(--surface) !important; color: var(--white) !important; border-color: var(--border) !important; }
-
-/* ── SUPPORT MODAL ── */
-#support-modal {
-  display: none; position: fixed; inset: 0; z-index: 200;
-  background: rgba(14,26,20,.92); align-items: center; justify-content: center; padding: 24px;
-}
-#support-modal.open { display: flex; }
-.support-modal-box {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  padding: 28px 24px; max-width: 340px; width: 100%;
-}
-.support-modal-box h2 {
-  font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 4px;
-}
-.support-modal-box p {
-  font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 20px; line-height: 1.5;
-}
-.support-modal-box textarea {
-  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--white); font-family: var(--sans); font-size: 13px; padding: 10px 12px;
-  resize: vertical; min-height: 100px; margin-bottom: 10px; box-sizing: border-box;
-}
-.support-modal-box textarea:focus { outline: none; border-color: var(--green); }
-.support-modal-hint { font-family: var(--mono); font-size: 11px; margin-bottom: 12px; min-height: 16px; }
-.support-modal-hint.error   { color: var(--red); }
-.support-modal-hint.success { color: var(--green); }
-.support-modal-actions { display: flex; gap: 10px; }
-.support-modal-actions .btn-secondary {
-  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
-  background: transparent; color: var(--muted); font-family: var(--sans); font-size: 14px;
-  font-weight: 600; cursor: pointer;
-}
-.support-modal-actions .btn-primary { flex: 2; }
 </style>
 </head>
 <body>
@@ -518,10 +417,8 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <input type="tel" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
   </div>
   <div class="pin-hint" id="pin-hint">Neuer Name → PIN wird neu festgelegt.<br>Bekannter Name → PIN zum Fortsetzen eingeben.</div>
-  <button class="support-link" id="forgot-pin-link" onclick="forgotPin()" style="margin-top:4px;">🔑 PIN vergessen? Support kontaktieren</button>
   <button class="btn-primary" id="start-btn" onclick="loginAndCheckStatus()">Einloggen →</button>
   <a class="home-leaderboard-btn" href="/les_communes_de_berne.pdf" target="_blank" rel="noopener">📄 Infos &amp; Anleitung</a>
-  <button class="support-link" onclick="openSupportModal()">✉️ Support kontaktieren</button>
 </div>
 
 <!-- MAP / DASHBOARD (single persistent screen after login) -->
@@ -535,8 +432,6 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <div class="hud-row1">
       <div class="hud-name" id="hud-name">–</div>
       <button id="hud-logout" onclick="logoutToLogin()" title="Abmelden">🚪 Abmelden</button>
-      <button id="hud-support" onclick="openSupportModal()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;cursor:pointer;padding:5px 10px;line-height:1;white-space:nowrap;pointer-events:auto;" title="Support">✉️ Support</button>
-      <button id="hud-pin" onclick="openPinChangeModal()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;cursor:pointer;padding:5px 10px;line-height:1;white-space:nowrap;pointer-events:auto;" title="PIN ändern">🔑 PIN</button>
       <div class="hud-timer" id="hud-timer">–</div>
     </div>
     <div class="hud-bar-row">
@@ -709,8 +604,8 @@ function initMap() {
   mapInstance = L.map("map", { zoomControl: true, attributionControl: false })
     .setView([46.95, 7.45], 9);
 
-  // Heller Basislayer mit Strassen (rastertiles mit Strassen, nicht nur Labels)
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 1.0 }).addTo(mapInstance);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", { maxZoom: 17 }).addTo(mapInstance);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 17, opacity: 0.6 }).addTo(mapInstance);
 
   geojsonLayer = L.geoJSON(BERN_GEOJSON, {
     style: f => styleFeature(f),
@@ -730,11 +625,11 @@ function styleFeature(f) {
   const name = f.properties?.name || String(f.id);
   const done = collected.has(name);
   return {
-    fillColor:   done ? "#3ddc84" : "transparent",
-    fillOpacity: done ? 0.50 : 0,
-    color:       done ? "#1db864" : "#e0182d",
-    weight:      done ? 2 : 1.2,
-    opacity:     done ? 0.9 : 0.7
+    fillColor:   done ? "#3ddc84" : "#ffffff",
+    fillOpacity: done ? 0.55 : 0.05,
+    color:       "#e0182d",
+    weight:      done ? 2 : 1.4,
+    opacity: 0.9
   };
 }
 
@@ -902,7 +797,7 @@ function showIdleDashboard() {
   btn.classList.remove("cancel-style");
   btn.classList.add("idle-style");
   btn.textContent = "▶ Starten";
-  btn.onclick = showDisclaimer;
+  btn.onclick = startNewChallenge;
 
   clearLocalState();
 }
@@ -1524,8 +1419,8 @@ function renderBestLeaderboard(rows) {
   // During competition: only show sessions started after official start,
   // and exclude finished sessions below the minimum threshold.
   const eligible = isTestPhase()
-    ? annotated.filter(r => r._reallyActive || r.count >= MIN_GEMEINDEN_FOR_RANKING)
-    : annotated.filter(r => !isTestSession(r) && (r._reallyActive || r.count >= MIN_GEMEINDEN_FOR_RANKING));
+    ? annotated.filter(r => r._reallyActive || r.count > 0)
+    : annotated.filter(r => !isTestSession(r) && (r._reallyActive || r.count > 0));
 
   if (!eligible.length) {
     el.innerHTML = "<div class='lb-empty'>Noch keine Einträge</div>";
@@ -2410,56 +2305,31 @@ async function loadAdminList() {
   if (!db) { el.innerHTML = "<div class='lb-empty'>Keine Datenbankverbindung</div>"; return; }
 
   try {
-    // Alle Spieler laden
-    const { data: players, error: pErr } = await db
-      .from("players")
-      .select("player_name")
-      .order("player_name", { ascending: true });
-    if (pErr) throw pErr;
-
-    // Alle Sessions laden
-    const { data: sessions } = await db
+    const { data: sessions, error } = await db
       .from("sessions")
-      .select("id, player_name, count, active, started_at");
+      .select("id, player_name, count, active, started_at")
+      .order("player_name", { ascending: true });
 
-    // Sessions pro Spieler gruppieren
-    const sessionMap = {};
-    (sessions || []).forEach(s => {
-      if (!sessionMap[s.player_name]) sessionMap[s.player_name] = [];
-      sessionMap[s.player_name].push(s);
-    });
+    if (error) throw error;
 
-    if (!players || !players.length) {
-      el.innerHTML = "<div class='lb-empty'>Keine Spieler vorhanden</div>";
+    if (!sessions || !sessions.length) {
+      el.innerHTML = "<div class='lb-empty'>Keine Einträge vorhanden</div>";
       return;
     }
 
     const durationMs = CHALLENGE_DURATION_H * 3600 * 1000;
-    el.innerHTML = players.map(p => {
-      const name = p.player_name;
-      const playerSessions = sessionMap[name] || [];
-
-      // Status: beste/aktive Session anzeigen
-      let detail = "Noch keine Session";
-      let sessionBtns = "";
-      if (playerSessions.length > 0) {
-        playerSessions.forEach(s => {
-          const elapsedMs = s.started_at ? (Date.now() - new Date(s.started_at)) : Infinity;
-          const reallyActive = s.active && elapsedMs < durationMs;
-          const status = reallyActive ? "läuft noch" : "abgeschlossen";
-          detail = `${s.count} Gem. · ${status}`;
-          sessionBtns += `<button class="admin-delete-btn" onclick="adminDeleteSession('${s.id}', '${esc(name)}')">Session löschen</button>`;
-        });
-      }
-
+    el.innerHTML = sessions.map(s => {
+      const elapsedMs = s.started_at ? (Date.now() - new Date(s.started_at)) : Infinity;
+      const reallyActive = s.active && elapsedMs < durationMs;
+      const status = reallyActive ? "läuft noch" : "abgeschlossen";
       return `<div class="admin-entry">
         <div class="admin-info">
-          <div class="admin-pname">${esc(name)}</div>
-          <div class="admin-detail">${detail}</div>
+          <div class="admin-pname">${esc(s.player_name)}</div>
+          <div class="admin-detail">${s.count} Gem. · ${status}</div>
         </div>
-        <button class="admin-delete-btn admin-reset-btn" onclick="adminResetPin('${esc(name)}')">PIN zurücksetzen</button>
-        ${sessionBtns}
-        <button class="admin-delete-btn" onclick="adminDeletePlayer('${esc(name)}')">Account löschen</button>
+        <button class="admin-delete-btn admin-reset-btn" onclick="adminResetPin('${esc(s.player_name)}')">PIN zurücksetzen</button>
+        <button class="admin-delete-btn" onclick="adminDeleteSession('${s.id}', '${esc(s.player_name)}')">Session löschen</button>
+        <button class="admin-delete-btn" onclick="adminDeletePlayer('${esc(s.player_name)}')">Account löschen</button>
       </div>`;
     }).join("");
   } catch(e) {
@@ -2469,16 +2339,19 @@ async function loadAdminList() {
 }
 
 async function adminResetPin(name) {
-  if (!confirm(`PIN von "${name}" automatisch zurücksetzen?`)) return;
-  // Zufälligen 4-stelligen PIN generieren
-  const newPin = String(Math.floor(1000 + Math.random() * 9000));
+  const newPin = prompt(`Neuen 4-stelligen PIN für "${name}" festlegen:`);
+  if (newPin === null) return; // cancelled
+  if (!/^\d{4}$/.test(newPin)) {
+    alert("Bitte genau 4 Ziffern eingeben.");
+    return;
+  }
   try {
     const newHash = await hashPin(name, newPin);
     const { error } = await db.from("players")
       .update({ pin_hash: newHash })
       .eq("player_name", name);
     if (error) throw error;
-    alert(`✅ Neuer PIN für "${name}":\n\n${newPin}\n\nBitte dem Spieler per Mail mitteilen.`);
+    alert(`Neuer PIN für "${name}": ${newPin}\nBitte direkt weitergeben.`);
   } catch(e) {
     console.error("adminResetPin:", e);
     alert("PIN zurücksetzen fehlgeschlagen.");
@@ -2583,234 +2456,7 @@ function goHome() {
 initSupabase();
 loadHomeStat();
 tryResumeChallenge();
-
-// ══════════════════════════════════════════════════════════════════
-//  SUPPORT MODAL
-// ══════════════════════════════════════════════════════════════════
-
-function openSupportModal() {
-  // Wenn eingeloggt: Name vorausfüllen
-  if (typeof playerName !== 'undefined' && playerName) {
-    document.getElementById("support-name").value = playerName;
-  }
-  document.getElementById("support-hint").textContent = "";
-  document.getElementById("support-hint").className = "support-modal-hint";
-  document.getElementById("support-message").value = "";
-  document.getElementById("support-modal").classList.add("open");
-}
-
-function closeSupportModal() {
-  document.getElementById("support-modal").classList.remove("open");
-}
-
-async function submitSupport() {
-  const name    = document.getElementById("support-name").value.trim();
-  const email   = document.getElementById("support-email").value.trim();
-  const message = document.getElementById("support-message").value.trim();
-  const hint    = document.getElementById("support-hint");
-
-  const setHint = (msg, err) => {
-    hint.textContent = msg;
-    hint.className = "support-modal-hint" + (err ? " error" : " success");
-  };
-
-  if (!name)    { setHint("Bitte deinen Namen eingeben.", true); return; }
-  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) { setHint("Bitte eine gültige E-Mail eingeben.", true); return; }
-  if (!message) { setHint("Bitte eine Nachricht eingeben.", true); return; }
-
-  const btn = document.querySelector("#support-modal .btn-primary");
-  btn.disabled = true;
-  btn.textContent = "Senden…";
-
-  try {
-    const res = await fetch("https://anfiitbptpeqkqcdscdc.supabase.co/functions/v1/rapid-endpoint", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": window._supabaseKey || "" },
-      body: JSON.stringify({ name, email, message })
-    });
-
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      setHint("Fehler beim Senden. Bitte später nochmals versuchen.", true);
-      return;
-    }
-
-    setHint("✅ Nachricht gesendet! Du erhältst bald eine Antwort.", false);
-    setTimeout(() => closeSupportModal(), 2500);
-  } catch(e) {
-    setHint("Fehler beim Senden. Bitte später nochmals versuchen.", true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Senden →";
-  }
-}
-
-
-// ══════════════════════════════════════════════════════════════════
-//  PIN ÄNDERN
-// ══════════════════════════════════════════════════════════════════
-
-function openPinChangeModal() {
-  document.getElementById("pin-current").value = "";
-  document.getElementById("pin-new").value = "";
-  document.getElementById("pin-new2").value = "";
-  document.getElementById("pin-modal-hint").textContent = "";
-  document.getElementById("pin-modal-hint").className = "pin-modal-hint";
-  document.getElementById("pin-change-modal").classList.add("open");
-}
-
-function closePinChangeModal() {
-  document.getElementById("pin-change-modal").classList.remove("open");
-}
-
-function forgotPin() {
-  // Öffnet Support-Modal mit vorausgefüllter Nachricht
-  document.getElementById("support-name").value = typeof playerName !== 'undefined' ? playerName : "";
-  document.getElementById("support-message").value = "Ich habe meinen PIN vergessen und benötige einen neuen.";
-  document.getElementById("support-hint").textContent = "";
-  document.getElementById("support-hint").className = "support-modal-hint";
-  document.getElementById("support-modal").classList.add("open");
-}
-
-async function submitPinChange() {
-  const current = document.getElementById("pin-current").value.trim();
-  const newPin  = document.getElementById("pin-new").value.trim();
-  const newPin2 = document.getElementById("pin-new2").value.trim();
-  const hint    = document.getElementById("pin-modal-hint");
-
-  const setHint = (msg, err) => {
-    hint.textContent = msg;
-    hint.className = "pin-modal-hint" + (err ? " error" : " success");
-  };
-
-  if (!/^\d{4}$/.test(current)) { setHint("Aktueller PIN: genau 4 Ziffern eingeben.", true); return; }
-  if (!/^\d{4}$/.test(newPin))  { setHint("Neuer PIN: genau 4 Ziffern eingeben.", true); return; }
-  if (newPin !== newPin2)         { setHint("Neue PINs stimmen nicht überein.", true); return; }
-  if (newPin === current)         { setHint("Neuer PIN muss sich vom alten unterscheiden.", true); return; }
-
-  const btn = document.querySelector("#pin-change-modal .btn-primary");
-  btn.disabled = true;
-  btn.textContent = "Prüfen…";
-
-  try {
-    // Aktuellen PIN verifizieren
-    const ok = await verifyPinStrict(playerName, current);
-    if (!ok) { setHint("Aktueller PIN ist falsch.", true); return; }
-
-    // Neuen Hash setzen
-    const newHash = await hashPin(playerName, newPin);
-    const { error } = await db.from("players")
-      .update({ pin_hash: newHash })
-      .eq("player_name", playerName);
-
-    if (error) throw error;
-
-    setHint("✅ PIN erfolgreich geändert!", false);
-    setTimeout(() => closePinChangeModal(), 2000);
-  } catch(e) {
-    console.error("submitPinChange:", e);
-    setHint("Fehler beim Speichern. Bitte nochmals versuchen.", true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Speichern →";
-  }
-}
-
-
-// ══════════════════════════════════════════════════════════════════
-//  DISCLAIMER VOR SESSION-START
-// ══════════════════════════════════════════════════════════════════
-
-function showDisclaimer() {
-  document.getElementById("disclaimer-check").checked = false;
-  document.getElementById("disclaimer-confirm-btn").disabled = true;
-  document.getElementById("disclaimer-modal").classList.add("open");
-}
-
-function closeDisclaimer() {
-  document.getElementById("disclaimer-modal").classList.remove("open");
-}
-
-function disclaimerCheckChanged() {
-  const checked = document.getElementById("disclaimer-check").checked;
-  document.getElementById("disclaimer-confirm-btn").disabled = !checked;
-}
-
-async function confirmDisclaimerAndStart() {
-  closeDisclaimer();
-  await startNewChallenge();
-}
-
 </script>
 
-
-<!-- SUPPORT MODAL -->
-<div id="support-modal">
-  <div class="support-modal-box">
-    <h2>✉️ Support kontaktieren</h2>
-    <p>Beschreibe dein Problem — du erhältst eine Antwort per E-Mail.</p>
-    <div class="input-wrap">
-      <label>Dein Name</label>
-      <input type="text" id="support-name" placeholder="Vorname Nachname" maxlength="60" autocomplete="name">
-    </div>
-    <div class="input-wrap">
-      <label>Deine E-Mail</label>
-      <input type="email" id="support-email" placeholder="du@beispiel.ch" maxlength="120" autocomplete="email">
-    </div>
-    <textarea id="support-message" placeholder="Beschreibe dein Problem…"></textarea>
-    <div class="support-modal-hint" id="support-hint"></div>
-    <div class="support-modal-actions">
-      <button class="btn-secondary" onclick="closeSupportModal()">Abbrechen</button>
-      <button class="btn-primary" onclick="submitSupport()">Senden →</button>
-    </div>
-  </div>
-</div>
-
-<!-- PIN ÄNDERN MODAL -->
-<div id="pin-change-modal">
-  <div class="pin-modal-box">
-    <h2>🔑 PIN ändern</h2>
-    <p>Gib deinen aktuellen PIN ein und wähle einen neuen 4-stelligen PIN.</p>
-    <div class="input-wrap">
-      <label>Aktueller PIN</label>
-      <input type="tel" id="pin-current" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-    </div>
-    <div class="input-wrap">
-      <label>Neuer PIN</label>
-      <input type="tel" id="pin-new" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-    </div>
-    <div class="input-wrap">
-      <label>Neuer PIN wiederholen</label>
-      <input type="tel" id="pin-new2" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-    </div>
-    <div class="pin-modal-hint" id="pin-modal-hint"></div>
-    <div class="pin-modal-actions">
-      <button class="btn-secondary" onclick="closePinChangeModal()">Abbrechen</button>
-      <button class="btn-primary" onclick="submitPinChange()">Speichern →</button>
-    </div>
-  </div>
-</div>
-
-<!-- DISCLAIMER MODAL -->
-<div id="disclaimer-modal">
-  <div class="disclaimer-box">
-    <h2>⚠️ Sicherheitshinweis</h2>
-    <ul>
-      <li>Ich halte mich jederzeit an die Strassenverkehrsregeln.</li>
-      <li>Ich fahre nur auf für Velos erlaubten Strassen und Wegen.</li>
-      <li>Ich trage einen Helm und bin entsprechend ausgerüstet.</li>
-      <li>Ich nehme auf eigene Gefahr und Verantwortung teil.</li>
-      <li>Der Anbieter dieser App übernimmt keinerlei Haftung für Unfälle, Schäden oder Verletzungen.</li>
-    </ul>
-    <label class="disclaimer-confirm">
-      <input type="checkbox" id="disclaimer-check" onchange="disclaimerCheckChanged()">
-      Ich habe die Hinweise gelesen und akzeptiere die Bedingungen.
-    </label>
-    <div class="disclaimer-actions">
-      <button class="btn-secondary" onclick="closeDisclaimer()">Abbrechen</button>
-      <button class="btn-primary" id="disclaimer-confirm-btn" disabled onclick="confirmDisclaimerAndStart()">Challenge starten →</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
