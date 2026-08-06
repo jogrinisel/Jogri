@@ -540,8 +540,8 @@ const SUPABASE_URL      = "https://anfiitbptpeqkqcdscdc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_DvtivXIqw57lsYjR7F7CuQ_hbZlGtT-";
 const CHALLENGE_DURATION_H      = 10;                     // Dauer einer Session in Stunden
 const MIN_GEMEINDEN_FOR_RANKING = 10;                     // Mindestanzahl für Bestenliste
-const CHALLENGE_START           = new Date("2026-08-22T00:00:00"); // Offizieller Starttermin
-const CHALLENGE_END             = new Date("2026-09-05T23:59:59"); // Offizielles Ende
+const CHALLENGE_START           = new Date("2026-08-22T00:00:00+02:00"); // Offizieller Starttermin (CEST)
+const CHALLENGE_END             = new Date("2026-09-05T23:59:59+02:00"); // Offizielles Ende (CEST)
 
 // Automatisch: vor dem offiziellen Start ist alles Testphase
 function isTestPhase() {
